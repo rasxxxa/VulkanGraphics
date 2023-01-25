@@ -17,9 +17,15 @@ class VulkanEngine
 {
 private:
 	struct SDL_Window* m_window{ nullptr };
+#pragma region DepthImage
+	VkImageView m_depthImageView;
+	AllocatedImage m_depthImage;
+	VkFormat m_depthFormat;
+#pragma endregion
 #pragma region MESHES
 	Mesh mesh;
 #pragma endregion
+
 #pragma region Deletor
 	DeletionQueue m_deleter;
 #pragma endregion
@@ -92,6 +98,7 @@ private:
 	VkPipeline BuildPipeline(VkDevice device, VkRenderPass pass);
 	VkPipelineLayout m_pipelineLayout;
 	VkPipeline m_pipeline;
+	VkPipelineDepthStencilStateCreateInfo m_depthStencil;
 #pragma endregion
 
 public:

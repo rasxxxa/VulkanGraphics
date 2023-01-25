@@ -88,6 +88,38 @@ void VulkanEngine::InitSwapchain()
 	}
 	m_deleter.Push([this]() {vkDestroySwapchainKHR(m_logicalDevice, m_swapchain, nullptr); });
 
+	//depth image size will match the window
+	VkExtent3D depthImageExtent = {
+		WindowSize.width,
+		WindowSize.height,
+		1
+	};
+
+	//hardcoding the depth format to 32 bit float
+	m_depthFormat = VK_FORMAT_D32_SFLOAT;
+
+	//the depth image will be an image with the format we selected and Depth Attachment usage flag
+	VkImageCreateInfo dimg_info = VkInit::ImageCreateInfo(m_depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, depthImageExtent);
+
+	//for the depth image, we want to allocate it from GPU local memory
+	VmaAllocationCreateInfo dimg_allocinfo = {};
+	dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+	dimg_allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+	//allocate and create the image
+	vmaCreateImage(m_allocator, &dimg_info, &dimg_allocinfo, &m_depthImage.image, &m_depthImage.allocation, nullptr);
+
+	//build an image-view for the depth image to use for rendering
+	VkImageViewCreateInfo dview_info = VkInit::ImageViewCreateInfo(m_depthFormat, m_depthImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+	VK_CHECK(vkCreateImageView(m_logicalDevice, &dview_info, nullptr, &m_depthImageView));
+
+	//add to deletion queues
+	m_deleter.Push([this]() {
+		vkDestroyImageView(m_logicalDevice, m_depthImageView, nullptr);
+		vmaDestroyImage(m_allocator, m_depthImage.image, m_depthImage.allocation);
+		});
+
 }
 
 void VulkanEngine::InitCommands()
@@ -118,8 +150,21 @@ void VulkanEngine::InitDefaultRenderPass()
 	// final layout has to be in layout ready for display
 	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-	VkRenderPassCreateInfo render_pass_info = {};
-	render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	VkAttachmentDescription depth_attachment = {};
+	// Depth attachment
+	depth_attachment.flags = 0;
+	depth_attachment.format = m_depthFormat;
+	depth_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depth_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	depth_attachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference depth_attachment_ref = {};
+	depth_attachment_ref.attachment = 1;
+	depth_attachment_ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 	VkAttachmentReference color_attachment_ref = {};
 	//attachment number will index into the pAttachments array in the parent renderpass itself
@@ -131,12 +176,40 @@ void VulkanEngine::InitDefaultRenderPass()
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	subpass.colorAttachmentCount = 1;
 	subpass.pColorAttachments = &color_attachment_ref;
+	subpass.pDepthStencilAttachment = &depth_attachment_ref;
+
+	//array of 2 attachments, one for the color, and other for depth
+	std::vector<VkAttachmentDescription> attachments = { colorAttachment, depth_attachment };
+
+	VkSubpassDependency dependency = {};
+	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependency.dstSubpass = 0;
+	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependency.srcAccessMask = 0;
+	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+	VkSubpassDependency depth_dependency = {};
+	depth_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	depth_dependency.dstSubpass = 0;
+	depth_dependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+	depth_dependency.srcAccessMask = 0;
+	depth_dependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+	depth_dependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+	std::vector<VkSubpassDependency> dependencies = { dependency, depth_dependency };
+
+	VkRenderPassCreateInfo render_pass_info = {};
+	render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	//2 attachments from said array
+	render_pass_info.attachmentCount = attachments.size();
+	render_pass_info.pAttachments = attachments.data();
+	render_pass_info.subpassCount = 1;
+	render_pass_info.pSubpasses = &subpass;
+	render_pass_info.dependencyCount = dependencies.size();
+	render_pass_info.pDependencies = dependencies.data();
 
 	//connect the color attachment to the info
-	render_pass_info.attachmentCount = 1;
-	render_pass_info.pAttachments = &colorAttachment;
-	//connect the subpass to the info
-	render_pass_info.subpassCount = 1;
 	render_pass_info.pSubpasses = &subpass;
 
 
@@ -161,9 +234,11 @@ void VulkanEngine::InitFrameBuffers()
 	m_frameBuffers = std::vector<VkFramebuffer>(swapchain_imagecount);
 
 	//create framebuffers for each of the swapchain image views
-	for (int i = 0; i < swapchain_imagecount; i++) {
-
-		fb_info.pAttachments = &m_swapChainImages.imageViews[i];
+	for (int i = 0; i < swapchain_imagecount; i++) 
+	{
+		std::vector<VkImageView> attachments = { m_swapChainImages.imageViews[i], m_depthImageView };
+		fb_info.attachmentCount = attachments.size();
+		fb_info.pAttachments = attachments.data();
 		VK_CHECK(vkCreateFramebuffer(m_logicalDevice, &fb_info, nullptr, &m_frameBuffers[i]));
 		m_deleter.Push([this, buffer = i]() {vkDestroyFramebuffer(m_logicalDevice, m_frameBuffers[buffer], nullptr); });
 	}
@@ -361,6 +436,9 @@ void VulkanEngine::Draw()
 	float flash = abs(sin(m_frameNumber / 120.f));
 	clearValue.color = { { 0.0f, 0.0f, flash, 1.0f } };
 
+	VkClearValue depthValue;
+	depthValue.depthStencil.depth = 1.0f;
+
 	//start the main renderpass.
 	//We will use the clear color from above, and the framebuffer of the index the swapchain gave us
 	VkRenderPassBeginInfo rpInfo = {};
@@ -377,8 +455,9 @@ void VulkanEngine::Draw()
 	rpInfo.framebuffer = m_frameBuffers[swapchainImageIndex];
 
 	//connect clear values
-	rpInfo.clearValueCount = 1;
-	rpInfo.pClearValues = &clearValue;
+	std::vector<VkClearValue> clearValues = { clearValue, depthValue };
+	rpInfo.clearValueCount = clearValues.size();
+	rpInfo.pClearValues = clearValues.data();
 	glm::vec3 camPos = { 0.f,0.f,-2.f };
 
 	glm::mat4 view = glm::translate(glm::mat4(1.f), camPos);
@@ -528,6 +607,8 @@ VkPipeline VulkanEngine::BuildPipeline(VkDevice device, VkRenderPass pass)
 	pipelineInfo.renderPass = pass;
 	pipelineInfo.subpass = 0;
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+	m_depthStencil = VkInit::DepthStencilCreateInfo(true, true, VK_COMPARE_OP_LESS_OR_EQUAL);
+	pipelineInfo.pDepthStencilState = &m_depthStencil;
 
 	//it's easy to error out on create graphics pipeline, so we handle it a bit better than the common VK_CHECK case
 	VkPipeline newPipeline;

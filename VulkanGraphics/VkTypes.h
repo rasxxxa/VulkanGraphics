@@ -14,3 +14,9 @@ struct MeshPushConstant
 	glm::vec4 data;
 	glm::mat4 renderMatrix;
 };
+
+struct AllocatedImage
+{
+	VkImage image;
+	VmaAllocation allocation;
+};
