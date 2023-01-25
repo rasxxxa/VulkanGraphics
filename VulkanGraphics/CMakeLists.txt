@@ -16,7 +16,7 @@ add_executable (VulkanGraphics
 "Helper.ixx" 
 "../Externals/vkbootstrap/VkBootstrap.h"
 "../Externals/vkbootstrap/VkBootstrap.cpp"
-  )
+   "DeletionQueue.h" "DeletionQueue.cpp")
 
 target_link_libraries(VulkanGraphics SDL2::SDL2 SDL2::SDL2main)
 

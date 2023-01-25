@@ -71,6 +71,12 @@ void VulkanEngine::InitSwapchain()
 	m_swapchainImageFormat = vkbSwapchain.image_format;
 	m_swapChainImages.images = vkbSwapchain.get_images().value();
 	m_swapChainImages.imageViews = vkbSwapchain.get_image_views().value();
+
+	for (int i = 0; i < m_swapChainImages.imageViews.size(); i++)
+	{
+		m_deleter.Push([this, frame = i]() {vkDestroyImageView(m_logicalDevice, m_swapChainImages.imageViews[frame], nullptr); });
+	}
+	m_deleter.Push([this]() {vkDestroySwapchainKHR(m_logicalDevice, m_swapchain, nullptr); });
 }
 
 void VulkanEngine::InitCommands()
@@ -78,6 +84,7 @@ void VulkanEngine::InitCommands()
 	VkCommandPoolCreateInfo commandPoolCreateInfo = VkInit::CommandPoolCreateInfo(m_graphicsQueueFamilyIndex, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
 	VK_CHECK(vkCreateCommandPool(m_logicalDevice, &commandPoolCreateInfo, nullptr, &m_commandPool));
+	m_deleter.Push([this]() {vkDestroyCommandPool(m_logicalDevice, m_commandPool, nullptr); });
 
 	VkCommandBufferAllocateInfo commandBufferAllocateInfo = VkInit::CommandBufferAllocateInfo(m_commandPool, 1);
 	
@@ -123,6 +130,7 @@ void VulkanEngine::InitDefaultRenderPass()
 
 
 	VK_CHECK(vkCreateRenderPass(m_logicalDevice, &render_pass_info, nullptr, &m_renderPass));
+	m_deleter.Push([this]() {vkDestroyRenderPass(m_logicalDevice, m_renderPass, nullptr); });
 }
 
 void VulkanEngine::InitFrameBuffers()
@@ -146,6 +154,7 @@ void VulkanEngine::InitFrameBuffers()
 
 		fb_info.pAttachments = &m_swapChainImages.imageViews[i];
 		VK_CHECK(vkCreateFramebuffer(m_logicalDevice, &fb_info, nullptr, &m_frameBuffers[i]));
+		m_deleter.Push([this, buffer = i]() {vkDestroyFramebuffer(m_logicalDevice, m_frameBuffers[buffer], nullptr); });
 	}
 }
 
@@ -161,6 +170,7 @@ void VulkanEngine::InitSyncStructures()
 	fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
 	VK_CHECK(vkCreateFence(m_logicalDevice, &fenceCreateInfo, nullptr, &m_renderFence));
+	m_deleter.Push([this]() {vkDestroyFence(m_logicalDevice, m_renderFence, nullptr); });
 
 	//for the semaphores we don't need any flags
 	VkSemaphoreCreateInfo semaphoreCreateInfo = {};
@@ -169,7 +179,9 @@ void VulkanEngine::InitSyncStructures()
 	semaphoreCreateInfo.flags = 0;
 
 	VK_CHECK(vkCreateSemaphore(m_logicalDevice, &semaphoreCreateInfo, nullptr, &m_presentSemaphore));
+	m_deleter.Push([this]() {vkDestroySemaphore(m_logicalDevice, m_presentSemaphore, nullptr); });
 	VK_CHECK(vkCreateSemaphore(m_logicalDevice, &semaphoreCreateInfo, nullptr, &m_renderSemaphore));
+	m_deleter.Push([this]() {vkDestroySemaphore(m_logicalDevice, m_renderSemaphore, nullptr); });
 }
 
 #include <filesystem>
@@ -239,6 +251,7 @@ void VulkanEngine::InitPipelines()
 	VkPipelineLayoutCreateInfo pipeline_layout_info = VkInit::PipelineLayoutCreateInfo();
 
 	VK_CHECK(vkCreatePipelineLayout(m_logicalDevice, &pipeline_layout_info, nullptr, &m_pipelineLayout));
+	m_deleter.Push([this]() { vkDestroyPipelineLayout(m_logicalDevice, m_pipelineLayout, nullptr); });
 
 	// layout and shader modules creation
 
@@ -282,6 +295,8 @@ void VulkanEngine::InitPipelines()
 
 	//finally build the pipeline
 	m_pipeline = BuildPipeline(m_logicalDevice, m_renderPass);
+	m_deleter.Push([this]() { vkDestroyPipeline(m_logicalDevice, m_pipeline, nullptr); });
+
 
 	vkDestroyShaderModule(m_logicalDevice, fragShader, nullptr);
 	vkDestroyShaderModule(m_logicalDevice, vertShader, nullptr);
@@ -497,23 +512,8 @@ void VulkanEngine::Run()
 void VulkanEngine::CleanUp()
 {
 	vkWaitForFences(m_logicalDevice, 1, &m_renderFence, true, 1000000000);
-	vkDestroyPipeline(m_logicalDevice, m_pipeline, nullptr);
-	vkDestroyPipelineLayout(m_logicalDevice, m_pipelineLayout, nullptr);
-	vkDestroySemaphore(m_logicalDevice, m_renderSemaphore, nullptr);
-	vkDestroySemaphore(m_logicalDevice, m_presentSemaphore, nullptr);
-	vkDestroyFence(m_logicalDevice, m_renderFence, nullptr);
-	vkDestroyCommandPool(m_logicalDevice, m_commandPool, nullptr);
 
-	vkDestroySwapchainKHR(m_logicalDevice, m_swapchain, nullptr);
-
-	vkDestroyRenderPass(m_logicalDevice, m_renderPass, nullptr);
-
-	// No need to destroy images, because they are destroyed with swapchain
-	for (int i = 0; i < m_swapChainImages.imageViews.size(); i++)
-	{
-		vkDestroyFramebuffer(m_logicalDevice, m_frameBuffers[i], nullptr);
-		vkDestroyImageView(m_logicalDevice, m_swapChainImages.imageViews[i], nullptr);
-	}
+	m_deleter.Flush();
 
 	vkDestroyDevice(m_logicalDevice, nullptr);
 	vkDestroySurfaceKHR(m_instance, m_surface, nullptr);

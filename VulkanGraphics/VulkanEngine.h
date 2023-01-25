@@ -6,14 +6,16 @@
 #include <vulkan/vulkan.h>
 #include <vector>
 #include "vkbootstrap/VkBootstrap.h"
-
+#include "DeletionQueue.h"
 import Helper;
 
 class VulkanEngine
 {
 private:
 	struct SDL_Window* m_window{ nullptr };
-
+#pragma region Deletor
+	DeletionQueue m_deleter;
+#pragma endregion
 #pragma region VulkanCoreStruct
 	VkInstance m_instance;
 	VkDebugUtilsMessengerEXT m_debugMessenger;
