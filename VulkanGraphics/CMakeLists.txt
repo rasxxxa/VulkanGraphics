@@ -17,7 +17,8 @@ add_executable (VulkanGraphics
 "Helper.ixx" 
 "../Externals/vkbootstrap/VkBootstrap.h"
 "../Externals/vkbootstrap/VkBootstrap.cpp"
-
+"../Externals/glm/glm/glm.hpp"
+"../Externals/glm/glm/gtx/transform.hpp"
    "DeletionQueue.h" "DeletionQueue.cpp" "Mesh.h" "Mesh.cpp" "VkTypes.h")
 
 target_link_libraries(VulkanGraphics SDL2::SDL2 SDL2::SDL2main)

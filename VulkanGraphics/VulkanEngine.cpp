@@ -2,6 +2,8 @@
 #include <vulkan/vulkan.h>
 #include "VulkanEngine.h"
 #include "VKInit.h"
+#include <glm/glm/glm.hpp>
+#include <glm/glm/gtx/transform.hpp>
 #define VMA_IMPLEMENTATION
 #include "vma/vk_mem_alloc.h"
 
@@ -259,6 +261,18 @@ void VulkanEngine::InitPipelines()
     //we are not using descriptor sets or other systems yet, so no need to use anything other than empty default
 	VkPipelineLayoutCreateInfo pipeline_layout_info = VkInit::PipelineLayoutCreateInfo();
 
+	//setup push constants
+	VkPushConstantRange push_constant;
+	//this push constant range starts at the beginning
+	push_constant.offset = 0;
+	//this push constant range takes up the size of a MeshPushConstants struct
+	push_constant.size = sizeof(MeshPushConstant);
+	//this push constant range is accessible only in the vertex shader
+	push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+	pipeline_layout_info.pPushConstantRanges = &push_constant;
+	pipeline_layout_info.pushConstantRangeCount = 1;
+
 	VK_CHECK(vkCreatePipelineLayout(m_logicalDevice, &pipeline_layout_info, nullptr, &m_pipelineLayout));
 	m_deleter.Push([this]() { vkDestroyPipelineLayout(m_logicalDevice, m_pipelineLayout, nullptr); });
 
@@ -365,12 +379,28 @@ void VulkanEngine::Draw()
 	//connect clear values
 	rpInfo.clearValueCount = 1;
 	rpInfo.pClearValues = &clearValue;
+	glm::vec3 camPos = { 0.f,0.f,-2.f };
+
+	glm::mat4 view = glm::translate(glm::mat4(1.f), camPos);
+	//camera projection
+	glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
+	projection[1][1] *= -1;
+	//model rotation
+	glm::mat4 model = glm::rotate(glm::mat4{ 1.0f }, glm::radians(m_frameNumber * 0.4f), glm::vec3(0, 1, 0));
+
+	//calculate final mesh matrix
+	glm::mat4 mesh_matrix = projection * view * model;
+
+	MeshPushConstant constants;
+	constants.renderMatrix = mesh_matrix;
 
 	vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 	vkCmdBindPipeline(m_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 	VkDeviceSize offset = 0;
 	vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.m_vertexBuffer.buffer, &offset);
+	vkCmdPushConstants(cmd, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstant), &constants);
+
 	vkCmdDraw(cmd, 3, 1, 0, 0);
 
 	vkCmdEndRenderPass(cmd);
