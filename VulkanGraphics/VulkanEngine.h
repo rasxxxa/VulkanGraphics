@@ -58,7 +58,23 @@ private:
 	void InitDefaultRenderPass();
 	void InitFrameBuffers();
 	void InitSyncStructures();
+	bool LoadShaderModule(const std::string& path, VkShaderModule* createdShaderModule);
+	void InitPipelines();
 	void Draw();
+#pragma endregion
+
+#pragma region Pipeline
+	std::vector<VkPipelineShaderStageCreateInfo> m_shaderStages;
+	VkPipelineVertexInputStateCreateInfo m_vertexInputInfo;
+	VkPipelineInputAssemblyStateCreateInfo m_inputAssembly;
+	VkViewport m_viewport;
+	VkRect2D m_scissor;
+	VkPipelineRasterizationStateCreateInfo m_rasterizer;
+	VkPipelineColorBlendAttachmentState m_colorBlendAttachment;
+	VkPipelineMultisampleStateCreateInfo m_multisampling;
+	VkPipeline BuildPipeline(VkDevice device, VkRenderPass pass);
+	VkPipelineLayout m_pipelineLayout;
+	VkPipeline m_pipeline;
 #pragma endregion
 
 public:
