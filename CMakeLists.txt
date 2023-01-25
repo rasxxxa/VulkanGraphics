@@ -7,3 +7,5 @@ project ("VulkanGraphics")
 
 # Include sub-projects.
 add_subdirectory ("VulkanGraphics")
+
+set (CMAKE_CXX_STANDARD 20)

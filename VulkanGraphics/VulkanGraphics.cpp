@@ -2,11 +2,14 @@
 //
 
 #include "VulkanGraphics.h"
-
+#include "VulkanEngine.h"
 using namespace std;
 
 int main()
 {
-	cout << "Hello CMake. Test 1 2 3 " << endl;
-	return 1;
+	VulkanEngine engine;
+	engine.Init();
+	engine.Run();
+	engine.CleanUp();
+	return 0;
 }

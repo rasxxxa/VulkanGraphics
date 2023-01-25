@@ -1,3 +1,6 @@
+#pragma once
+#include <SDL.h>
+
 class VulkanEngine
 {
 public:
