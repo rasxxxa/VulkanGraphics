@@ -2,11 +2,14 @@
 #include <SDL.h>
 
 #include <iostream>
+
 #include "SDL_vulkan.h"
 #include <vulkan/vulkan.h>
 #include <vector>
+#include "vma/vk_mem_alloc.h"
 #include "vkbootstrap/VkBootstrap.h"
 #include "DeletionQueue.h"
+
 import Helper;
 
 class VulkanEngine
@@ -16,6 +19,11 @@ private:
 #pragma region Deletor
 	DeletionQueue m_deleter;
 #pragma endregion
+
+#pragma region Allocator
+	VmaAllocator m_allocator;
+#pragma endregion
+
 #pragma region VulkanCoreStruct
 	VkInstance m_instance;
 	VkDebugUtilsMessengerEXT m_debugMessenger;

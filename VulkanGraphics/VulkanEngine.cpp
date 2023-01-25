@@ -2,6 +2,8 @@
 #include <vulkan/vulkan.h>
 #include "VulkanEngine.h"
 #include "VKInit.h"
+#define VMA_IMPLEMENTATION
+#include "vma/vk_mem_alloc.h"
 
 
 #define VK_CHECK(x)                                                 \
@@ -52,6 +54,12 @@ void VulkanEngine::InitVulkan()
 
 	m_graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
 	m_graphicsQueueFamilyIndex = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
+
+	VmaAllocatorCreateInfo allocatorInfo = {};
+	allocatorInfo.physicalDevice = m_physicalDevice;
+	allocatorInfo.device = m_logicalDevice;
+	allocatorInfo.instance = m_instance;
+	VK_CHECK(vmaCreateAllocator(&allocatorInfo, &m_allocator));
 }
 
 
@@ -77,6 +85,7 @@ void VulkanEngine::InitSwapchain()
 		m_deleter.Push([this, frame = i]() {vkDestroyImageView(m_logicalDevice, m_swapChainImages.imageViews[frame], nullptr); });
 	}
 	m_deleter.Push([this]() {vkDestroySwapchainKHR(m_logicalDevice, m_swapchain, nullptr); });
+
 }
 
 void VulkanEngine::InitCommands()
