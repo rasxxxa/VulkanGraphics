@@ -275,6 +275,12 @@ void VulkanEngine::InitPipelines()
 
 	//vertex input controls how to read vertices from vertex buffers. We aren't using it yet
 	m_vertexInputInfo = VkInit::VertexInputStateCreateInfo();
+	VertexInputDescription vertexDescription = Vertex::GetVertexInputDescription();
+	m_vertexInputInfo.vertexAttributeDescriptionCount = vertexDescription.attributes.size();
+	m_vertexInputInfo.pVertexAttributeDescriptions = vertexDescription.attributes.data();
+
+	m_vertexInputInfo.vertexBindingDescriptionCount = vertexDescription.bindings.size();
+	m_vertexInputInfo.pVertexBindingDescriptions = vertexDescription.bindings.data();
 
 	//input assembly is the configuration for drawing triangle lists, strips, or individual points.
 	//we are just going to draw triangle list
@@ -363,6 +369,8 @@ void VulkanEngine::Draw()
 	vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 	vkCmdBindPipeline(m_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+	VkDeviceSize offset = 0;
+	vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.m_vertexBuffer.buffer, &offset);
 	vkCmdDraw(cmd, 3, 1, 0, 0);
 
 	vkCmdEndRenderPass(cmd);
@@ -406,6 +414,44 @@ void VulkanEngine::Draw()
 
 	//increase the number of frames drawn
 	m_frameNumber++;
+}
+
+void VulkanEngine::LoadMesh()
+{
+	UploadMesh(mesh);
+}
+
+void VulkanEngine::UploadMesh(Mesh& mesh)
+{
+	//allocate vertex buffer
+	VkBufferCreateInfo bufferInfo = {};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	//this is the total size, in bytes, of the buffer we are allocating
+	bufferInfo.size = mesh.m_vertices.size() * sizeof(Vertex);
+	//this buffer is going to be used as a Vertex Buffer
+	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+
+	//let the VMA library know that this data should be writeable by CPU, but also readable by GPU
+	VmaAllocationCreateInfo vmaallocInfo = {};
+	vmaallocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+
+	//allocate the buffer
+	VK_CHECK(vmaCreateBuffer(m_allocator, &bufferInfo, &vmaallocInfo,
+		&mesh.m_vertexBuffer.buffer,
+		&mesh.m_vertexBuffer.allocation,
+		nullptr));
+
+
+	//add the destruction of triangle mesh buffer to the deletion queue
+	m_deleter.Push([this, mesh]() {vmaDestroyBuffer(m_allocator, mesh.m_vertexBuffer.buffer, mesh.m_vertexBuffer.allocation); });
+
+	void* data;
+	vmaMapMemory(m_allocator, mesh.m_vertexBuffer.allocation, &data);
+
+	memcpy(data, mesh.m_vertices.data(), mesh.m_vertices.size() * sizeof(Vertex));
+
+	vmaUnmapMemory(m_allocator, mesh.m_vertexBuffer.allocation);
 }
 
 
@@ -499,6 +545,8 @@ void VulkanEngine::Init()
 	InitSyncStructures();
 
 	InitPipelines();
+
+	LoadMesh();
 }
 
 void VulkanEngine::Run()
@@ -524,10 +572,15 @@ void VulkanEngine::CleanUp()
 
 	m_deleter.Flush();
 
+	vmaDestroyAllocator(m_allocator);
+
 	vkDestroyDevice(m_logicalDevice, nullptr);
 	vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
 	vkb::destroy_debug_utils_messenger(m_instance, m_debugMessenger);
 	vkDestroyInstance(m_instance, nullptr);
+
+	// Clean memory for allocator
+
 	SDL_DestroyWindow(m_window);
 }
 

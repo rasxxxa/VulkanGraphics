@@ -9,6 +9,7 @@
 #include "vma/vk_mem_alloc.h"
 #include "vkbootstrap/VkBootstrap.h"
 #include "DeletionQueue.h"
+#include "Mesh.h"
 
 import Helper;
 
@@ -16,6 +17,9 @@ class VulkanEngine
 {
 private:
 	struct SDL_Window* m_window{ nullptr };
+#pragma region MESHES
+	Mesh mesh;
+#pragma endregion
 #pragma region Deletor
 	DeletionQueue m_deleter;
 #pragma endregion
@@ -71,6 +75,9 @@ private:
 	bool LoadShaderModule(const std::string& path, VkShaderModule* createdShaderModule);
 	void InitPipelines();
 	void Draw();
+	void LoadMesh();
+
+	void UploadMesh(Mesh& mesh);
 #pragma endregion
 
 #pragma region Pipeline

@@ -18,7 +18,7 @@ add_executable (VulkanGraphics
 "../Externals/vkbootstrap/VkBootstrap.h"
 "../Externals/vkbootstrap/VkBootstrap.cpp"
 
-   "DeletionQueue.h" "DeletionQueue.cpp")
+   "DeletionQueue.h" "DeletionQueue.cpp" "Mesh.h" "Mesh.cpp" "VkTypes.h")
 
 target_link_libraries(VulkanGraphics SDL2::SDL2 SDL2::SDL2main)
 
