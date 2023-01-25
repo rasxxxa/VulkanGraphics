@@ -1,5 +1,7 @@
 export module Helper;
 
+using ushort = unsigned short;
+
 export
 {
 	struct SDLWindowSize
@@ -11,5 +13,11 @@ export
 	SDLWindowSize WindowSize;
 
 	bool RequestValidation = true;
+
+	struct VulkanVersion
+	{
+		ushort major = 1;
+		ushort minor = 3;
+	} VkVersion;
 
 }

@@ -18,7 +18,7 @@ void VulkanEngine::InitVulkan()
 	builder
 		.set_app_name("Engine")
 		.request_validation_layers(RequestValidation)
-		.require_api_version(1, 1, 0);
+		.require_api_version(VkVersion.major, VkVersion.minor, 0);
 
 	if (RequestValidation)
 	{
@@ -29,7 +29,43 @@ void VulkanEngine::InitVulkan()
 	auto vkb_instance = instance.value();
 	m_instance = vkb_instance.instance;
 	m_debugMessenger = vkb_instance.debug_messenger;
+
+
+	SDL_Vulkan_CreateSurface(m_window, m_instance, &m_surface);
+
+	vkb::PhysicalDeviceSelector selector{ vkb_instance };
+	vkb::PhysicalDevice physicalDevice = selector
+		.set_minimum_version(VkVersion.major, VkVersion.minor)
+		.set_surface(m_surface)
+		.select()
+		.value();
+
+	vkb::DeviceBuilder deviceBuilder(physicalDevice);
+	vkb::Device vkbDevice = deviceBuilder.build().value();
+
+	m_logicalDevice = vkbDevice.device;
+	m_physicalDevice = physicalDevice.physical_device;
 }
+
+
+
+void VulkanEngine::InitSwapchain()
+{
+	// If we need window resize, rebuild swapchain TODO
+	vkb::SwapchainBuilder swapchainBuilder{ m_physicalDevice, m_logicalDevice, m_surface };
+	vkb::Swapchain vkbSwapchain = swapchainBuilder
+		.use_default_format_selection()
+		.set_desired_present_mode(VK_PRESENT_MODE_MAILBOX_KHR)
+		.set_desired_extent(WindowSize.width, WindowSize.height)
+		.build()
+		.value();
+
+	m_swapchain = vkbSwapchain.swapchain;
+	m_swapChainImages.images = vkbSwapchain.get_images().value();
+	m_swapChainImages.imageViews = vkbSwapchain.get_image_views().value();
+}
+
+
 
 VulkanEngine::VulkanEngine()
 {
@@ -42,7 +78,7 @@ void VulkanEngine::Init()
 
 	SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
 
-	_window = SDL_CreateWindow(
+	m_window = SDL_CreateWindow(
 		"Vulkan Engine",
 		SDL_WINDOWPOS_UNDEFINED,
 		SDL_WINDOWPOS_UNDEFINED,
@@ -53,6 +89,7 @@ void VulkanEngine::Init()
 
 	InitVulkan();
 
+	InitSwapchain();
 }
 
 void VulkanEngine::Run()
@@ -73,4 +110,16 @@ void VulkanEngine::Run()
 
 void VulkanEngine::CleanUp()
 {
+	vkDestroySwapchainKHR(m_logicalDevice, m_swapchain, nullptr);
+
+	for (auto& val : m_swapChainImages.imageViews)
+	{
+		vkDestroyImageView(m_logicalDevice, val, nullptr);
+	}
+
+	vkDestroyDevice(m_logicalDevice, nullptr);
+	vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
+	vkb::destroy_debug_utils_messenger(m_instance, m_debugMessenger);
+	vkDestroyInstance(m_instance, nullptr);
+	SDL_DestroyWindow(m_window);
 }
