@@ -1,5 +1,36 @@
 #include "VulkanEngine.h"
 
+#define VK_CHECK(x)                                                 \
+	do                                                              \
+	{                                                               \
+		VkResult err = x;                                           \
+		if (err)                                                    \
+		{                                                           \
+			std::cout <<"Detected Vulkan error: " << err << std::endl; \
+			abort();                                                \
+		}                                                           \
+	} while (0)
+
+void VulkanEngine::InitVulkan()
+{
+	// using vkBoostrap to create first instance
+	vkb::InstanceBuilder builder;
+	builder
+		.set_app_name("Engine")
+		.request_validation_layers(RequestValidation)
+		.require_api_version(1, 1, 0);
+
+	if (RequestValidation)
+	{
+		builder.use_default_debug_messenger();
+	}
+
+	auto instance = builder.build();
+	auto vkb_instance = instance.value();
+	m_instance = vkb_instance.instance;
+	m_debugMessenger = vkb_instance.debug_messenger;
+}
+
 VulkanEngine::VulkanEngine()
 {
 }
@@ -19,6 +50,9 @@ void VulkanEngine::Init()
 		WindowSize.height,
 		window_flags
 	);
+
+	InitVulkan();
+
 }
 
 void VulkanEngine::Run()

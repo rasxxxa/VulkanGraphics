@@ -9,7 +9,13 @@ set(ENV{CMAKE_PREFIX_PATH} "${CMAKE_SOURCE_DIR}/SDKS/SDL2-2.26.2")
 find_package(SDL2 REQUIRED)
 
 # Add source to this project's executable.
-add_executable (VulkanGraphics "VulkanGraphics.cpp" "VulkanGraphics.h" "VulkanEngine.h" "VulkanEngine.cpp"  "Helper.ixx")
+add_executable (VulkanGraphics 
+"VulkanGraphics.cpp" "VulkanGraphics.h" 
+"VulkanEngine.h" "VulkanEngine.cpp"  
+"Helper.ixx" 
+"../Externals/vkbootstrap/VkBootstrap.h"
+"../Externals/vkbootstrap/VkBootstrap.cpp"
+)
 
 target_link_libraries(VulkanGraphics SDL2::SDL2 SDL2::SDL2main)
 
@@ -19,6 +25,9 @@ file(COPY ${CMAKE_SOURCE_DIR}/SDKS/SDL2-2.26.2/lib/x64/SDL2.dll DESTINATION ${CM
 find_package(Vulkan REQUIRED)
 target_link_libraries(VulkanGraphics Vulkan::Vulkan Vulkan::Headers)
 target_include_directories(VulkanGraphics PUBLIC ${Vulkan_INCLUDE_DIRS})
+
+message(${CMAKE_SOURCE_DIR})
+target_include_directories(VulkanGraphics PUBLIC ${CMAKE_SOURCE_DIR}/Externals)
 
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

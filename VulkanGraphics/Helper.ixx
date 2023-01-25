@@ -9,4 +9,7 @@ export
 	};
 
 	SDLWindowSize WindowSize;
+
+	bool RequestValidation = true;
+
 }
