@@ -1,10 +1,11 @@
 #pragma once
 #include <SDL.h>
-#include <vulkan/vulkan.h>
-#include "vkbootstrap/VkBootstrap.h"
-#include "SDL_vulkan.h"
-#include <vector>
 
+#include <iostream>
+#include "SDL_vulkan.h"
+#include <vulkan/vulkan.h>
+#include <vector>
+#include "vkbootstrap/VkBootstrap.h"
 
 import Helper;
 
@@ -30,12 +31,34 @@ private:
 	};
 
 	SwapChainImagesProperties m_swapChainImages;
+
+	VkQueue m_graphicsQueue;
+	uint32_t m_graphicsQueueFamilyIndex;
+
+	VkCommandPool m_commandPool;
+	VkCommandBuffer m_commandBuffer;
+
+	VkRenderPass m_renderPass;
+	std::vector<VkFramebuffer> m_frameBuffers;
+
+	VkSemaphore m_presentSemaphore, m_renderSemaphore;
+	VkFence m_renderFence;
+
+#pragma endregion
+
+#pragma region PrimitiveTypes
+	int m_frameNumber = 0;
 #pragma endregion
 
 #pragma region VulkanCoreFunction
 
 	void InitVulkan();
 	void InitSwapchain();
+	void InitCommands();
+	void InitDefaultRenderPass();
+	void InitFrameBuffers();
+	void InitSyncStructures();
+	void Draw();
 #pragma endregion
 
 public:

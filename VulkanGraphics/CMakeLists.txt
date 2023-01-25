@@ -11,11 +11,12 @@ find_package(SDL2 REQUIRED)
 # Add source to this project's executable.
 add_executable (VulkanGraphics 
 "VulkanGraphics.cpp" "VulkanGraphics.h" 
+"VKInit.h"
 "VulkanEngine.h" "VulkanEngine.cpp"  
 "Helper.ixx" 
 "../Externals/vkbootstrap/VkBootstrap.h"
 "../Externals/vkbootstrap/VkBootstrap.cpp"
-)
+  )
 
 target_link_libraries(VulkanGraphics SDL2::SDL2 SDL2::SDL2main)
 
