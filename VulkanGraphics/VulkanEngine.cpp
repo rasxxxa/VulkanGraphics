@@ -5,6 +5,7 @@
 #include <glm/glm/glm.hpp>
 #include <glm/glm/gtx/transform.hpp>
 
+
 #include <SDL_vulkan.h>
 #define VMA_IMPLEMENTATION
 #include "vma/vk_mem_alloc.h"
@@ -89,6 +90,8 @@ void VulkanEngine::InitVulkan()
 	m_graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
 	m_graphicsQueueFamilyIndex = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
 
+	m_GPUProperties = vkbDevice.physical_device.properties;
+
 	VmaAllocatorCreateInfo allocatorInfo = {};
 	allocatorInfo.physicalDevice = m_physicalDevice;
 	allocatorInfo.device = m_logicalDevice;
@@ -158,6 +161,19 @@ void VulkanEngine::InitSwapchain()
 
 void VulkanEngine::InitCommands()
 {
+
+	VkCommandPoolCreateInfo uploadCommandPoolInfo = VkInit::CommandPoolCreateInfo(m_graphicsQueueFamilyIndex);
+	//create pool for upload context
+	VK_CHECK(vkCreateCommandPool(m_logicalDevice, &uploadCommandPoolInfo, nullptr, &m_uploadContext.m_commandPool));
+
+	m_deleter.Push([this]() {vkDestroyCommandPool(m_logicalDevice, m_uploadContext.m_commandPool, nullptr);});
+
+	//allocate the default command buffer that we will use for the instant commands
+	VkCommandBufferAllocateInfo cmdAllocInfo = VkInit::CommandBufferAllocateInfo(m_uploadContext.m_commandPool, 1);
+
+	VkCommandBuffer cmd;
+	VK_CHECK(vkAllocateCommandBuffers(m_logicalDevice, &cmdAllocInfo, &m_uploadContext.m_commandBuffer));
+
 	VkCommandPoolCreateInfo commandPoolCreateInfo = VkInit::CommandPoolCreateInfo(m_graphicsQueueFamilyIndex, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
 	for (int frame = 0; frame < FRAMES; frame++)
@@ -310,6 +326,12 @@ void VulkanEngine::InitSyncStructures()
 		VK_CHECK(vkCreateSemaphore(m_logicalDevice, &semaphoreCreateInfo, nullptr, &m_frames[frame].m_renderSemaphore));
 		m_deleter.Push([this, f = frame]() {vkDestroySemaphore(m_logicalDevice, m_frames[f].m_renderSemaphore, nullptr); });
 	}
+
+	fenceCreateInfo.flags = 0;
+
+	VK_CHECK(vkCreateFence(m_logicalDevice, &fenceCreateInfo, nullptr, &m_uploadContext.m_uploadFence));
+	m_deleter.Push([this]() { vkDestroyFence(m_logicalDevice, m_uploadContext.m_uploadFence, nullptr); });
+
 }
 
 #include <filesystem>
@@ -390,8 +412,10 @@ void VulkanEngine::InitPipelines()
 	pipeline_layout_info.pPushConstantRanges = &push_constant;
 	pipeline_layout_info.pushConstantRangeCount = 1;
 
-	pipeline_layout_info.setLayoutCount = 1;
-	pipeline_layout_info.pSetLayouts = &m_globalSetLayout;
+	std::vector<VkDescriptorSetLayout> layouts = { m_globalSetLayout, m_singleTextureSetLayout };
+
+	pipeline_layout_info.setLayoutCount = layouts.size();
+	pipeline_layout_info.pSetLayouts = layouts.data();
 
 	VK_CHECK(vkCreatePipelineLayout(m_logicalDevice, &pipeline_layout_info, nullptr, &m_pipelineLayout));
 	m_deleter.Push([this]() { vkDestroyPipelineLayout(m_logicalDevice, m_pipelineLayout, nullptr); });
@@ -478,8 +502,8 @@ void VulkanEngine::Draw()
 
 	//make a clear-color from frame number. This will flash with a 120*pi frame period.
 	VkClearValue clearValue;
-	float flash = abs(sin(m_frameNumber / 120.f));
-	clearValue.color = { { 0.0f, 0.0f, flash, 1.0f } };
+	//float flash = abs(sin(m_frameNumber / 120.f));
+	clearValue.color = { { 1.0f, 1.0f, 1.0f, 1.0f } };
 
 	VkClearValue depthValue;
 	depthValue.depthStencil.depth = 1.0f;
@@ -503,42 +527,11 @@ void VulkanEngine::Draw()
 	std::vector<VkClearValue> clearValues = { clearValue, depthValue };
 	rpInfo.clearValueCount = clearValues.size();
 	rpInfo.pClearValues = clearValues.data();
-	glm::vec3 camPos = { 0.f,0.f,-2.f };
 
-	glm::mat4 view = glm::translate(glm::mat4(1.f), camPos);
-	glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
-	projection[1][1] *= -1;
-
-	//fill a GPU camera data struct
-	GPUCameraData camData;
-	camData.proj = projection;
-	camData.view = view;
-	camData.viewproj = projection * view;
-
-	//and copy it to the buffer
-	void* data;
-	vmaMapMemory(m_allocator, GetCurrentFrame().m_cameraBuffer.allocation, &data);
-
-	memcpy(data, &camData, sizeof(GPUCameraData));
-
-	vmaUnmapMemory(m_allocator, GetCurrentFrame().m_cameraBuffer.allocation);
-
-	glm::mat4 model = glm::rotate(glm::mat4{ 1.0f }, glm::radians(m_frameNumber * 0.4f), glm::vec3(0, 1, 0));
-
-	//calculate final mesh matrix
-	glm::mat4 mesh_matrix = projection * view * model;
-
-	MeshPushConstant constants;
-	constants.renderMatrix = mesh_matrix;
 
 	vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	vkCmdBindPipeline(GetCurrentFrame().m_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-	VkDeviceSize offset = 0;
-	vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.m_vertexBuffer.buffer, &offset);
-	vkCmdPushConstants(cmd, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstant), &constants);
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &GetCurrentFrame().m_globalDescriptor, 0, nullptr);
-	vkCmdDraw(cmd, 3, 1, 0, 0);
+	DrawObjects(cmd);
 
 	vkCmdEndRenderPass(cmd);
 
@@ -585,132 +578,365 @@ void VulkanEngine::Draw()
 
 void VulkanEngine::LoadMesh()
 {
-	UploadMesh(mesh);
+	static bool samplerCreated = false;
+	if (!samplerCreated)
+	{
+		samplerCreated = true;
+		auto val = VkInit::SamplerCreateInfo(VK_FILTER_NEAREST);
+		vkCreateSampler(m_logicalDevice, &val, nullptr, &m_sampler);
+	}
+
+	const std::string path = "../../../../assets/";
+	const std::string imgName = "Slike";
+	for (int i = 10000; i < 10010; i++)
+	{
+		Mesh mesh;
+		UploadMesh(mesh);
+		std::string fullImage = imgName;
+		fullImage.append(std::to_string(i));
+		fullImage.append(".png");
+
+		m_meshes[fullImage] = mesh;
+		std::string fullPath = path;
+		fullPath.append(fullImage);
+
+		LoadImage(fullPath.c_str(), fullImage.c_str());
+
+		//float x = rand.GetNumber(-5.5f, 5.5f);
+		//float y = rand.GetNumber(-5.5f, 5.5f);
+
+		RenderObject map;
+		map.mesh = &m_meshes[fullImage];
+
+		float x = float(rand() % 10) / 10.0f;
+		float y = float(rand() % 10) / 10.0f;
+		map.transformMatrix = glm::translate(glm::vec3{x, y ,0 });
+		//map3.transformMatrix = glm::rotate(map3.transformMatrix, glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		map.texId = CreateTextureDescriptor(m_loadedTextures[fullImage].imageView, m_sampler);
+		m_renderables.push_back(map);
+	}
+
+	int x = 0;
+
 }
 
 void VulkanEngine::InitDescriptors()
 {
-	//create a descriptor pool that will hold 10 uniform buffers
-	std::vector<VkDescriptorPoolSize> sizes =
-	{
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10 }
-	};
+	VkDescriptorPoolSize vpPoolSize = {};
+	vpPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	vpPoolSize.descriptorCount = static_cast<uint32_t>(FRAMES);
 
-	VkDescriptorPoolCreateInfo pool_info = {};
-	pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	pool_info.flags = 0;
-	pool_info.maxSets = 10;
-	pool_info.poolSizeCount = (uint32_t)sizes.size();
-	pool_info.pPoolSizes = sizes.data();
+	std::vector<VkDescriptorPoolSize> poolSyzes = { vpPoolSize/*, vpModelPoolSize*/ };
 
-	vkCreateDescriptorPool(m_logicalDevice , &pool_info, nullptr, &m_descriptorPool);
 
+	VkDescriptorPoolCreateInfo poolCreateInfo = {};
+	poolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolCreateInfo.maxSets = static_cast<uint32_t>(FRAMES);
+	poolCreateInfo.poolSizeCount = static_cast<uint32_t>(poolSyzes.size());
+	poolCreateInfo.pPoolSizes = poolSyzes.data();
+
+
+	VK_CHECK(vkCreateDescriptorPool(m_logicalDevice , &poolCreateInfo, nullptr, &m_descriptorPool));
 	m_deleter.Push([this]() {vkDestroyDescriptorPool(m_logicalDevice, m_descriptorPool, nullptr); });
 
-	//information about the binding.
-	VkDescriptorSetLayoutBinding camBufferBinding = {};
-	camBufferBinding.binding = 0;
-	camBufferBinding.descriptorCount = 1;
-	// it's a uniform buffer binding
-	camBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	//create texture sampler pool
 
-	// we use it from the vertex shader
-	camBufferBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	VkDescriptorPoolSize samplerPoolSize = {};
+	samplerPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	samplerPoolSize.descriptorCount = 5000;
+
+	VkDescriptorPoolCreateInfo samplerPoolCreateInfo = {};
+	samplerPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	samplerPoolCreateInfo.maxSets = 5000;
+	samplerPoolCreateInfo.poolSizeCount = 1;
+	samplerPoolCreateInfo.pPoolSizes = &samplerPoolSize;
+
+	VK_CHECK(vkCreateDescriptorPool(m_logicalDevice, &samplerPoolCreateInfo, nullptr, &m_samplerDescriptorPool));
+	m_deleter.Push([this]() {vkDestroyDescriptorPool(m_logicalDevice, m_samplerDescriptorPool, nullptr); });
 
 
-	VkDescriptorSetLayoutCreateInfo setinfo = {};
-	setinfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	setinfo.pNext = nullptr;
+	VkDescriptorSetLayoutBinding vpLayoutBinding = {};
+	vpLayoutBinding.binding = 0;
+	vpLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	vpLayoutBinding.descriptorCount = 1;
+	vpLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	vpLayoutBinding.pImmutableSamplers = nullptr; // used for textures
 
-	//we are going to have 1 binding
-	setinfo.bindingCount = 1;
-	//no flags
-	setinfo.flags = 0;
-	//point to the camera buffer binding
-	setinfo.pBindings = &camBufferBinding;
+	std::vector<VkDescriptorSetLayoutBinding> layoutBindings = { vpLayoutBinding/*, modelLayoutBinding*/ };
 
-	vkCreateDescriptorSetLayout(m_logicalDevice, &setinfo, nullptr, &m_globalSetLayout);
+	// Create descriptor set layout with given bindings
+	VkDescriptorSetLayoutCreateInfo layoutCreatInfo = {};
+	layoutCreatInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutCreatInfo.bindingCount = static_cast<uint32_t>(layoutBindings.size());
+	layoutCreatInfo.pBindings = layoutBindings.data();
+
+	//create desc info layout
+
+	VK_CHECK(vkCreateDescriptorSetLayout(m_logicalDevice, &layoutCreatInfo, nullptr, &m_globalSetLayout));
 	m_deleter.Push([this]() {vkDestroyDescriptorSetLayout(m_logicalDevice, m_globalSetLayout, nullptr); });
 
+	//create texture sampler layout
+	//texture binding info
+	VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
+	samplerLayoutBinding.binding = 0;
+	samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	samplerLayoutBinding.descriptorCount = 1;
+	samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	samplerLayoutBinding.pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutCreateInfo textureLayoutCreateInfo = {};
+	textureLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	textureLayoutCreateInfo.bindingCount = 1;
+	textureLayoutCreateInfo.pBindings = &samplerLayoutBinding;
+
+	VK_CHECK(vkCreateDescriptorSetLayout(m_logicalDevice, &textureLayoutCreateInfo, nullptr, &m_singleTextureSetLayout));
+	m_deleter.Push([this]() {vkDestroyDescriptorSetLayout(m_logicalDevice, m_globalSetLayout, nullptr); });
+
+	std::vector<VkDescriptorSetLayout> setLayouts(FRAMES, m_globalSetLayout);
+
+	VkDescriptorSetAllocateInfo setAllocInfo = {};
+	setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	setAllocInfo.descriptorPool = m_descriptorPool;									// Pool to allocate Descriptor Set from
+	setAllocInfo.descriptorSetCount = static_cast<uint32_t>(FRAMES);	// Number of sets to allocate
+	setAllocInfo.pSetLayouts = setLayouts.data();
+
+	std::vector<VkDescriptorSet> descriptorToBind;
+	descriptorToBind.resize(FRAMES);
+
+	vkAllocateDescriptorSets(m_logicalDevice, &setAllocInfo, descriptorToBind.data());
 	for (int i = 0; i < FRAMES; i++)
 	{
 		m_frames[i].m_cameraBuffer = CreateBuffer(sizeof(GPUCameraData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-		m_deleter.Push([this, frame = i]() {vmaDestroyBuffer(m_allocator, m_frames[frame].m_cameraBuffer.buffer, m_frames[frame].m_cameraBuffer.allocation); });
+		m_frames[i].m_globalDescriptor = descriptorToBind[i];
+	}
 
-		//allocate one descriptor set for each frame
-		VkDescriptorSetAllocateInfo allocInfo = {};
-		allocInfo.pNext = nullptr;
-		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		//using the pool we just set
-		allocInfo.descriptorPool = m_descriptorPool;
-		//only 1 descriptor
-		allocInfo.descriptorSetCount = 1;
-		//using the global data layout
-		allocInfo.pSetLayouts = &m_globalSetLayout;
+	for (size_t i = 0; i < FRAMES; i++)
+	{
+		// Buffer info and data offset info
+		VkDescriptorBufferInfo vpBufferInfo = {};
+		vpBufferInfo.buffer = m_frames[i].m_cameraBuffer.buffer;		// Buffer to get data from
+		vpBufferInfo.offset = 0;						// Position of start of data
+		vpBufferInfo.range = sizeof(GPUCameraData);				// Size of data
 
-		vkAllocateDescriptorSets(m_logicalDevice, &allocInfo, &m_frames[i].m_globalDescriptor);
-
-		//information about the buffer we want to point at in the descriptor
-		VkDescriptorBufferInfo binfo;
-		//it will be the camera buffer
-		binfo.buffer = m_frames[i].m_cameraBuffer.buffer;
-		//at 0 offset
-		binfo.offset = 0;
-		//of the size of a camera data struct
-		binfo.range = sizeof(GPUCameraData);
-
-		VkWriteDescriptorSet setWrite = {};
-		setWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		setWrite.pNext = nullptr;
-
-		//we are going to write into binding number 0
-		setWrite.dstBinding = 0;
-		//of the global descriptor
-		setWrite.dstSet = m_frames[i].m_globalDescriptor;
-
-		setWrite.descriptorCount = 1;
-		//and the type is uniform buffer
-		setWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		setWrite.pBufferInfo = &binfo;
+		// Data about connection between binding and buffer
+		VkWriteDescriptorSet vpSetWrite = {};
+		vpSetWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		vpSetWrite.dstSet = m_frames[i].m_globalDescriptor;								// Descriptor Set to update
+		vpSetWrite.dstBinding = 0;											// Binding to update (matches with binding on layout/shader)
+		vpSetWrite.dstArrayElement = 0;									// Index in array to update
+		vpSetWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;		// Type of descriptor
+		vpSetWrite.descriptorCount = 1;									// Amount to update
+		vpSetWrite.pBufferInfo = &vpBufferInfo;							// Information about buffer data to bind
+		std::vector<VkWriteDescriptorSet> setWrites = { vpSetWrite/*,modelSetWrite */ };
 
 
-		vkUpdateDescriptorSets(m_logicalDevice, 1, &setWrite, 0, nullptr);
-
+		// Update the descriptor sets with new buffer/binding info
+		vkUpdateDescriptorSets(m_logicalDevice, static_cast<uint32_t>(setWrites.size()), setWrites.data(), 0, nullptr);
 	}
 
 }
 
+void VulkanEngine::LoadImage(const std::string& path, const std::string& name)
+{
+	Texture startup;
+	if (!VkInit::LoadImageFromFile(*this, path.c_str(), startup.image))
+	{
+		std::cout << "ERROR LOADING IMAGE" << std::endl;
+		return;
+	}
+
+	VkImageViewCreateInfo imageinfoS = VkInit::ImageViewCreateInfo(VK_FORMAT_R8G8B8A8_SRGB, startup.image.image, VK_IMAGE_ASPECT_COLOR_BIT);
+	vkCreateImageView(m_logicalDevice, &imageinfoS, nullptr, &startup.imageView);
+
+	m_loadedTextures[name] = startup;
+}
+
 void VulkanEngine::UploadMesh(Mesh& mesh)
 {
-	//allocate vertex buffer
-	VkBufferCreateInfo bufferInfo = {};
-	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	//this is the total size, in bytes, of the buffer we are allocating
-	bufferInfo.size = mesh.m_vertices.size() * sizeof(Vertex);
-	//this buffer is going to be used as a Vertex Buffer
-	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
-
-	//let the VMA library know that this data should be writeable by CPU, but also readable by GPU
 	VmaAllocationCreateInfo vmaallocInfo = {};
 	vmaallocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
 
+	const size_t bufferSize = mesh.m_vertices.size() * sizeof(Vertex);
+
+	//allocate staging buffer
+	VkBufferCreateInfo stagingBufferInfo = {};
+	stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	stagingBufferInfo.pNext = nullptr;
+
+	stagingBufferInfo.size = bufferSize;
+	stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+	vmaallocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+
+	AllocatedBuffer stagingBuffer;
+
 	//allocate the buffer
-	VK_CHECK(vmaCreateBuffer(m_allocator, &bufferInfo, &vmaallocInfo,
+	VK_CHECK(vmaCreateBuffer(m_allocator, &stagingBufferInfo, &vmaallocInfo,
+		&stagingBuffer.buffer,
+		&stagingBuffer.allocation,
+		nullptr));
+
+	void* data;
+	vmaMapMemory(m_allocator, stagingBuffer.allocation, &data);
+
+	memcpy(data, mesh.m_vertices.data(), mesh.m_vertices.size() * sizeof(Vertex));
+
+	vmaUnmapMemory(m_allocator, stagingBuffer.allocation);
+
+	//allocate vertex buffer
+	VkBufferCreateInfo vertexBufferInfo = {};
+	vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	vertexBufferInfo.pNext = nullptr;
+	//this is the total size, in bytes, of the buffer we are allocating
+	vertexBufferInfo.size = bufferSize;
+	//this buffer is going to be used as a Vertex Buffer
+	vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+	//let the VMA library know that this data should be GPU native
+	vmaallocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+	//allocate the buffer
+	VK_CHECK(vmaCreateBuffer(m_allocator, &vertexBufferInfo, &vmaallocInfo,
 		&mesh.m_vertexBuffer.buffer,
 		&mesh.m_vertexBuffer.allocation,
 		nullptr));
 
+	ImmediateSubmit([=](VkCommandBuffer cmd) {
+		VkBufferCopy copy;
+	copy.dstOffset = 0;
+	copy.srcOffset = 0;
+	copy.size = bufferSize;
+	vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.m_vertexBuffer.buffer, 1, &copy);
+		});
 
-	//add the destruction of triangle mesh buffer to the deletion queue
-	m_deleter.Push([this, mesh]() {vmaDestroyBuffer(m_allocator, mesh.m_vertexBuffer.buffer, mesh.m_vertexBuffer.allocation); });
 
+	m_deleter.Push([this, m = mesh]() {
+		vmaDestroyBuffer(m_allocator, m.m_vertexBuffer.buffer, m.m_vertexBuffer.allocation);
+		});
+
+	vmaDestroyBuffer(m_allocator, stagingBuffer.buffer, stagingBuffer.allocation);
+}
+
+size_t VulkanEngine::PadUniformBufferSize(size_t originalSize)
+{
+	// Calculate required alignment based on minimum device offset alignment
+	size_t minUboAlignment = m_GPUProperties.limits.minUniformBufferOffsetAlignment;
+	size_t alignedSize = originalSize;
+	if (minUboAlignment > 0) {
+		alignedSize = (alignedSize + minUboAlignment - 1) & ~(minUboAlignment - 1);
+	}
+	return alignedSize;
+}
+
+int VulkanEngine::CreateTextureDescriptor(VkImageView textureImage, VkSampler sampler)
+{
+	VkDescriptorSet descriptorSet;
+
+	VkDescriptorSetAllocateInfo setAllocInfo = {};
+	setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	setAllocInfo.descriptorPool = m_samplerDescriptorPool;
+	setAllocInfo.descriptorSetCount = 1;
+	setAllocInfo.pSetLayouts = &m_singleTextureSetLayout;
+
+	VK_CHECK(vkAllocateDescriptorSets(m_logicalDevice, &setAllocInfo, &descriptorSet));
+
+	VkDescriptorImageInfo imageInfo = {};
+	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	imageInfo.imageView = textureImage;
+	imageInfo.sampler = sampler;
+
+	VkWriteDescriptorSet descriptorWrite = {};
+	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrite.dstSet = descriptorSet;
+	descriptorWrite.dstBinding = 0;
+	descriptorWrite.dstArrayElement = 0;
+	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	descriptorWrite.descriptorCount = 1;
+	descriptorWrite.pImageInfo = &imageInfo;
+
+	vkUpdateDescriptorSets(m_logicalDevice, 1, &descriptorWrite, 0, nullptr);
+
+	m_samplersDescriptorSets.push_back(descriptorSet);
+
+	return m_samplersDescriptorSets.size() - 1;
+}
+
+void VulkanEngine::ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function)
+{
+	VkCommandBuffer cmd = m_uploadContext.m_commandBuffer;
+
+	//begin the command buffer recording. We will use this command buffer exactly once before resetting, so we tell vulkan that
+	VkCommandBufferBeginInfo cmdBeginInfo = VkInit::CommandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+	VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+
+	//execute the function
+	function(cmd);
+
+	VK_CHECK(vkEndCommandBuffer(cmd));
+
+	VkSubmitInfo submit = VkInit::SubmitInfo(&cmd);
+
+
+	//submit command buffer to the queue and execute it.
+	// _uploadFence will now block until the graphic commands finish execution
+	VK_CHECK(vkQueueSubmit(m_graphicsQueue, 1, &submit, m_uploadContext.m_uploadFence));
+
+	vkWaitForFences(m_logicalDevice, 1, &m_uploadContext.m_uploadFence, true, 9999999999);
+	vkResetFences(m_logicalDevice, 1, &m_uploadContext.m_uploadFence);
+
+	// reset the command buffers inside the command pool
+	vkResetCommandPool(m_logicalDevice, m_uploadContext.m_commandPool, 0);
+}
+
+void VulkanEngine::DrawObjects(VkCommandBuffer cmd)
+{
+
+	glm::vec3 camPos = { 0.f,0.f,-10.f };
+
+	glm::mat4 view = glm::translate(glm::mat4(1.f), camPos);
+	glm::mat4 projection = glm::perspective(glm::radians(70.f), 800.f / 600.f, 0.1f, 200.0f);
+	projection[1][1] *= 1;
+
+	//fill a GPU camera data struct
+	GPUCameraData camData;
+	camData.proj = projection;
+	camData.view = view;
+
+	//and copy it to the buffer
 	void* data;
-	vmaMapMemory(m_allocator, mesh.m_vertexBuffer.allocation, &data);
+	vmaMapMemory(m_allocator, GetCurrentFrame().m_cameraBuffer.allocation, &data);
 
-	memcpy(data, mesh.m_vertices.data(), mesh.m_vertices.size() * sizeof(Vertex));
+	memcpy(data, &camData, sizeof(GPUCameraData));
 
-	vmaUnmapMemory(m_allocator, mesh.m_vertexBuffer.allocation);
+	vmaUnmapMemory(m_allocator, GetCurrentFrame().m_cameraBuffer.allocation);
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+	for (auto& renderable : m_renderables)
+	{
+		MeshPushConstant constants;
+		constants.renderMatrix = renderable.transformMatrix;
+		constants.alpha = renderable.alpha;
+		constants.hasTexture = (renderable.texId >= 0)? 1.0f : 0.0f;
+
+		vkCmdPushConstants(cmd, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstant), &constants);
+
+		Frame& val = GetCurrentFrame();
+		std::vector<VkDescriptorSet> sets = { val.m_globalDescriptor };
+		if (renderable.texId >= 0)
+			sets.push_back(m_samplersDescriptorSets[renderable.texId]);
+
+		vkCmdBindDescriptorSets(val.m_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout,
+			0, static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
+
+		VkDeviceSize offset = 0;
+		vkCmdBindVertexBuffers(cmd, 0, 1, &renderable.mesh->m_vertexBuffer.buffer, &offset);
+
+		vkCmdDraw(cmd, renderable.mesh->m_vertices.size(), 1, 0, 0);
+	}
+
+
+
 }
 
 

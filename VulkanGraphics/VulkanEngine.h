@@ -8,12 +8,35 @@
 #include "vkbootstrap/VkBootstrap.h"
 #include "DeletionQueue.h"
 #include "Mesh.h"
+#include <unordered_map>
+
 
 import Helper;
 
 class VulkanEngine
 {
 private:
+	
+	std::vector<VkDescriptorSet> m_samplersDescriptorSets;
+
+	struct Texture 
+	{
+		AllocatedImage image;
+		VkImageView imageView;
+	};
+
+	struct RenderObject 
+	{
+		Mesh* mesh;
+
+		glm::mat4 transformMatrix;
+
+		float alpha = 1.0f;
+
+		int texId = -1;
+	};
+
+	std::vector<RenderObject> m_renderables;
 
 	VkDescriptorSetLayout m_globalSetLayout;
 	VkDescriptorPool m_descriptorPool;
@@ -30,29 +53,44 @@ private:
 		VkDescriptorSet m_globalDescriptor;
 	};
 
+	struct UploadContext 
+	{
+		VkFence m_uploadFence;
+		VkCommandPool m_commandPool;
+		VkCommandBuffer m_commandBuffer;
+	}m_uploadContext;
+
 	Frame& GetCurrentFrame();
 
 	std::vector<Frame> m_frames;
 
 	struct SDL_Window* m_window{ nullptr };
+	VkPhysicalDeviceProperties m_GPUProperties;
+
 #pragma region DepthImage
 	VkImageView m_depthImageView;
 	AllocatedImage m_depthImage;
 	VkFormat m_depthFormat;
 #pragma endregion
+
 #pragma region MESHES
-	Mesh mesh;
+	std::unordered_map<std::string, Mesh> m_meshes;
 #pragma endregion
 
 #pragma region Deletor
 	DeletionQueue m_deleter;
+public:
+	inline DeletionQueue& GetDeleter() { return m_deleter; };
+private:
 #pragma endregion
 
 #pragma region Allocator
 	VmaAllocator m_allocator;
-
+	
+public:
+	inline VmaAllocator GetAllocator() { return m_allocator; };
 	AllocatedBuffer CreateBuffer(size_t allocSize, VkBufferUsageFlagBits usage, VmaMemoryUsage memoryUsage);
-
+private:
 #pragma endregion
 
 #pragma region VulkanCoreStruct
@@ -98,8 +136,20 @@ private:
 	void Draw();
 	void LoadMesh();
 	void InitDescriptors();
+	VkSampler m_sampler;
+	int CreateTextureDescriptor(VkImageView textureImage, VkSampler sampler);
+	void DrawObjects(VkCommandBuffer cmd);
+
+	void LoadImage(const std::string& path, const std::string& name);
 
 	void UploadMesh(Mesh& mesh);
+	size_t PadUniformBufferSize(size_t originalSize);
+	//texture hashmap
+	std::unordered_map<std::string, Texture> m_loadedTextures;
+
+public:
+	void ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
+private:
 #pragma endregion
 
 #pragma region Pipeline
@@ -115,6 +165,11 @@ private:
 	VkPipelineLayout m_pipelineLayout;
 	VkPipeline m_pipeline;
 	VkPipelineDepthStencilStateCreateInfo m_depthStencil;
+#pragma endregion
+
+#pragma region Textures
+	VkDescriptorPool m_samplerDescriptorPool;
+	VkDescriptorSetLayout m_singleTextureSetLayout;
 #pragma endregion
 
 public:

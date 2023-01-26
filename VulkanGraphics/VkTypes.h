@@ -11,8 +11,9 @@ struct AllocatedBuffer
 
 struct MeshPushConstant
 {
-	glm::vec4 data;
 	glm::mat4 renderMatrix;
+	float hasTexture;
+	float alpha;
 };
 
 struct AllocatedImage
@@ -22,7 +23,6 @@ struct AllocatedImage
 };
 
 struct GPUCameraData {
-	glm::mat4 view;
 	glm::mat4 proj;
-	glm::mat4 viewproj;
+	glm::mat4 view;
 };
