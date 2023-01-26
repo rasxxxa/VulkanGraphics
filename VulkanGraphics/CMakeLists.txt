@@ -3,10 +3,7 @@
 #
 cmake_minimum_required (VERSION 3.8)
 
-set(SDL2_DIR "${CMAKE_SOURCE_DIR}/SDKS/SDL2-2.26.2" )
-set(ENV{CMAKE_PREFIX_PATH} "${CMAKE_SOURCE_DIR}/SDKS/SDL2-2.26.2")
-
-find_package(SDL2 REQUIRED)
+message("Include dirs: " ${SDL2_INCLUDE_DIRS})
 
 # Add source to this project's executable.
 add_executable (VulkanGraphics 
@@ -21,10 +18,11 @@ add_executable (VulkanGraphics
 "../Externals/glm/glm/gtx/transform.hpp"
    "DeletionQueue.h" "DeletionQueue.cpp" "Mesh.h" "Mesh.cpp" "VkTypes.h")
 
-target_link_libraries(VulkanGraphics SDL2::SDL2 SDL2::SDL2main)
+find_package(SDL2 REQUIRED)
+    target_link_libraries(VulkanGraphics SDL2::SDL2 SDL2::SDL2main)
 
-file(COPY ${CMAKE_SOURCE_DIR}/SDKS/SDL2-2.26.2/lib/x64/SDL2.dll DESTINATION ${CMAKE_SOURCE_DIR}/out/build/x64-debug/VulkanGraphics)
-file(COPY ${CMAKE_SOURCE_DIR}/SDKS/SDL2-2.26.2/lib/x64/SDL2.dll DESTINATION ${CMAKE_SOURCE_DIR}/out/build/x64-release/VulkanGraphics)
+#file(COPY ${CMAKE_SOURCE_DIR}/SDKS/SDL2-2.26.2/lib/x64/SDL2.dll DESTINATION ${CMAKE_SOURCE_DIR}/out/build/x64-debug/VulkanGraphics)
+#file(COPY ${CMAKE_SOURCE_DIR}/SDKS/SDL2-2.26.2/lib/x64/SDL2.dll DESTINATION ${CMAKE_SOURCE_DIR}/out/build/x64-release/VulkanGraphics)
 
 find_package(Vulkan REQUIRED)
 target_link_libraries(VulkanGraphics Vulkan::Vulkan Vulkan::Headers)

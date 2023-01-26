@@ -1,8 +1,12 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
-  "name": "VulkanGraphics",
-  "version-string": "00000",
+  "name": "graphicslib",
+  "version": "0.9.0",
   "dependencies": [
-    "vulkan-memory-allocator"
+    "sdl2",
+    {
+      "name":  "sdl2",
+      "features": [ "vulkan" ]
+    }
   ]
 }

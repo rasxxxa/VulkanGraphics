@@ -4,6 +4,8 @@
 #include "VKInit.h"
 #include <glm/glm/glm.hpp>
 #include <glm/glm/gtx/transform.hpp>
+
+#include <SDL_vulkan.h>
 #define VMA_IMPLEMENTATION
 #include "vma/vk_mem_alloc.h"
 
@@ -632,6 +634,9 @@ void VulkanEngine::Init()
 	// We initialize SDL and create a window with it. 
 	SDL_Init(SDL_INIT_VIDEO);
 
+	auto error = SDL_GetError();
+	std::cout << error;
+
 	SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
 
 	m_window = SDL_CreateWindow(
@@ -642,6 +647,8 @@ void VulkanEngine::Init()
 		WindowSize.height,
 		window_flags
 	);
+	error = SDL_GetError();
+	std::cout << error;
 
 	InitVulkan();
 

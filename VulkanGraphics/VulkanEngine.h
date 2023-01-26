@@ -2,8 +2,6 @@
 #include <SDL.h>
 
 #include <iostream>
-
-#include "SDL_vulkan.h"
 #include <vulkan/vulkan.h>
 #include <vector>
 #include "vma/vk_mem_alloc.h"
