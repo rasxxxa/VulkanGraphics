@@ -20,4 +20,6 @@ export
 		ushort minor = 3;
 	} VkVersion;
 
+	constexpr ushort FRAMES = 2;
+
 }

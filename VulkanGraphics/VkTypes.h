@@ -20,3 +20,9 @@ struct AllocatedImage
 	VkImage image;
 	VmaAllocation allocation;
 };
+
+struct GPUCameraData {
+	glm::mat4 view;
+	glm::mat4 proj;
+	glm::mat4 viewproj;
+};

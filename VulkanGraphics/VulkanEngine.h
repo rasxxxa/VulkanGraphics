@@ -14,6 +14,26 @@ import Helper;
 class VulkanEngine
 {
 private:
+
+	VkDescriptorSetLayout m_globalSetLayout;
+	VkDescriptorPool m_descriptorPool;
+
+	struct Frame
+	{
+		VkSemaphore m_presentSemaphore, m_renderSemaphore;
+		VkFence m_renderFence;
+
+		VkCommandPool m_commandPool;
+		VkCommandBuffer m_commandBuffer;
+
+		AllocatedBuffer m_cameraBuffer;
+		VkDescriptorSet m_globalDescriptor;
+	};
+
+	Frame& GetCurrentFrame();
+
+	std::vector<Frame> m_frames;
+
 	struct SDL_Window* m_window{ nullptr };
 #pragma region DepthImage
 	VkImageView m_depthImageView;
@@ -30,6 +50,9 @@ private:
 
 #pragma region Allocator
 	VmaAllocator m_allocator;
+
+	AllocatedBuffer CreateBuffer(size_t allocSize, VkBufferUsageFlagBits usage, VmaMemoryUsage memoryUsage);
+
 #pragma endregion
 
 #pragma region VulkanCoreStruct
@@ -53,14 +76,8 @@ private:
 	VkQueue m_graphicsQueue;
 	uint32_t m_graphicsQueueFamilyIndex;
 
-	VkCommandPool m_commandPool;
-	VkCommandBuffer m_commandBuffer;
-
 	VkRenderPass m_renderPass;
 	std::vector<VkFramebuffer> m_frameBuffers;
-
-	VkSemaphore m_presentSemaphore, m_renderSemaphore;
-	VkFence m_renderFence;
 
 #pragma endregion
 
@@ -80,6 +97,7 @@ private:
 	void InitPipelines();
 	void Draw();
 	void LoadMesh();
+	void InitDescriptors();
 
 	void UploadMesh(Mesh& mesh);
 #pragma endregion
