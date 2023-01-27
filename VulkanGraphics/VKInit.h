@@ -351,10 +351,10 @@ namespace VkInit
 
 			});
 
-		engine.GetDeleter().Push([&]() {
+		//engine.GetDeleter().Push([&]() {
 
-				vmaDestroyImage(engine.GetAllocator(), newImage.image, newImage.allocation);
-			});
+		//		vmaDestroyImage(engine.GetAllocator(), newImage.image, newImage.allocation);
+		//	});
 
 		vmaDestroyBuffer(engine.GetAllocator(), stagingBuffer.buffer, stagingBuffer.allocation);
 

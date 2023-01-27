@@ -584,6 +584,7 @@ void VulkanEngine::LoadMesh()
 		samplerCreated = true;
 		auto val = VkInit::SamplerCreateInfo(VK_FILTER_NEAREST);
 		vkCreateSampler(m_logicalDevice, &val, nullptr, &m_sampler);
+		m_deleter.Push([this]() {vkDestroySampler(m_logicalDevice, m_sampler, nullptr); });
 	}
 
 	const std::string path = "../../../../assets/";
@@ -602,22 +603,15 @@ void VulkanEngine::LoadMesh()
 
 		LoadImage(fullPath.c_str(), fullImage.c_str());
 
-		//float x = rand.GetNumber(-5.5f, 5.5f);
-		//float y = rand.GetNumber(-5.5f, 5.5f);
-
 		RenderObject map;
 		map.mesh = &m_meshes[fullImage];
 
 		float x = float(rand() % 10) / 10.0f;
 		float y = float(rand() % 10) / 10.0f;
 		map.transformMatrix = glm::translate(glm::vec3{x, y ,0 });
-		//map3.transformMatrix = glm::rotate(map3.transformMatrix, glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 		map.texId = CreateTextureDescriptor(m_loadedTextures[fullImage].imageView, m_sampler);
 		m_renderables.push_back(map);
 	}
-
-	int x = 0;
-
 }
 
 void VulkanEngine::InitDescriptors()
@@ -690,7 +684,7 @@ void VulkanEngine::InitDescriptors()
 	textureLayoutCreateInfo.pBindings = &samplerLayoutBinding;
 
 	VK_CHECK(vkCreateDescriptorSetLayout(m_logicalDevice, &textureLayoutCreateInfo, nullptr, &m_singleTextureSetLayout));
-	m_deleter.Push([this]() {vkDestroyDescriptorSetLayout(m_logicalDevice, m_globalSetLayout, nullptr); });
+	m_deleter.Push([this]() {vkDestroyDescriptorSetLayout(m_logicalDevice, m_singleTextureSetLayout, nullptr); });
 
 	std::vector<VkDescriptorSetLayout> setLayouts(FRAMES, m_globalSetLayout);
 
@@ -784,6 +778,7 @@ void VulkanEngine::UploadMesh(Mesh& mesh)
 
 	vmaUnmapMemory(m_allocator, stagingBuffer.allocation);
 
+
 	//allocate vertex buffer
 	VkBufferCreateInfo vertexBufferInfo = {};
 	vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -809,7 +804,6 @@ void VulkanEngine::UploadMesh(Mesh& mesh)
 	copy.size = bufferSize;
 	vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.m_vertexBuffer.buffer, 1, &copy);
 		});
-
 
 	m_deleter.Push([this, m = mesh]() {
 		vmaDestroyBuffer(m_allocator, m.m_vertexBuffer.buffer, m.m_vertexBuffer.allocation);
@@ -1067,6 +1061,17 @@ void VulkanEngine::CleanUp()
 		vkWaitForFences(m_logicalDevice, 1, &m_frames[i].m_renderFence, true, 1000000000);
 	}
 
+	for (int i = 0; i < FRAMES; i++)
+	{
+		vmaDestroyBuffer(m_allocator, m_frames[i].m_cameraBuffer.buffer, m_frames[i].m_cameraBuffer.allocation);
+	}
+
+	for (auto& images : m_loadedTextures)
+	{
+		vkDestroyImageView(m_logicalDevice, images.second.imageView, nullptr);
+		vmaDestroyImage(m_allocator, images.second.image.image, images.second.image.allocation);
+	}
+	m_loadedTextures.clear();
 	m_deleter.Flush();
 
 	vmaDestroyAllocator(m_allocator);
