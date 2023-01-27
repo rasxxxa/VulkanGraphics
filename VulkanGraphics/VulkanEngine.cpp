@@ -589,6 +589,7 @@ void VulkanEngine::LoadMesh()
 
 	const std::string path = "../../../../assets/";
 	const std::string imgName = "Slike";
+	Random<float> rand;
 	for (int i = 10000; i < 10010; i++)
 	{
 		Mesh mesh;
@@ -606,8 +607,9 @@ void VulkanEngine::LoadMesh()
 		RenderObject map;
 		map.mesh = &m_meshes[fullImage];
 
-		float x = float(rand() % 10) / 10.0f;
-		float y = float(rand() % 10) / 10.0f;
+		float x = rand.Get(-5.5f, 5.5f);
+		float y = rand.Get(-5.5f, 5.5f);
+
 		map.transformMatrix = glm::translate(glm::vec3{x, y ,0 });
 		map.texId = CreateTextureDescriptor(m_loadedTextures[fullImage].imageView, m_sampler);
 		m_renderables.push_back(map);
@@ -1002,9 +1004,6 @@ void VulkanEngine::Init()
 	// We initialize SDL and create a window with it. 
 	SDL_Init(SDL_INIT_VIDEO);
 
-	auto error = SDL_GetError();
-	std::cout << error;
-
 	SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
 
 	m_window = SDL_CreateWindow(
@@ -1015,8 +1014,6 @@ void VulkanEngine::Init()
 		WindowSize.height,
 		window_flags
 	);
-	error = SDL_GetError();
-	std::cout << error;
 
 	InitVulkan();
 

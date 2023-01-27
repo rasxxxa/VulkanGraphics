@@ -19,14 +19,14 @@ add_executable (VulkanGraphics
    "DeletionQueue.h" "DeletionQueue.cpp" "Mesh.h" "Mesh.cpp" "VkTypes.h")
 
 find_package(SDL2 REQUIRED)
-    target_link_libraries(VulkanGraphics SDL2::SDL2 SDL2::SDL2main)
+    target_link_libraries(VulkanGraphics SDL2::SDL2 SDL2::SDL2main Random)
 
 #file(COPY ${CMAKE_SOURCE_DIR}/SDKS/SDL2-2.26.2/lib/x64/SDL2.dll DESTINATION ${CMAKE_SOURCE_DIR}/out/build/x64-debug/VulkanGraphics)
 #file(COPY ${CMAKE_SOURCE_DIR}/SDKS/SDL2-2.26.2/lib/x64/SDL2.dll DESTINATION ${CMAKE_SOURCE_DIR}/out/build/x64-release/VulkanGraphics)
 
 find_package(Vulkan REQUIRED)
 target_link_libraries(VulkanGraphics Vulkan::Vulkan Vulkan::Headers)
-target_include_directories(VulkanGraphics PUBLIC ${Vulkan_INCLUDE_DIRS})
+target_include_directories(VulkanGraphics PUBLIC ${Vulkan_INCLUDE_DIRS} Random)
 
 message(${CMAKE_SOURCE_DIR})
 target_include_directories(VulkanGraphics PUBLIC ${CMAKE_SOURCE_DIR}/Externals)

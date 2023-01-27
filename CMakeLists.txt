@@ -16,8 +16,10 @@ set(CMAKE_TOOLCHAIN_FILE ${vcpkg_SOURCE_DIR}/scripts/buildsystems/vcpkg.cmake
     CACHE STRING "CMake toolchain file")
 
 project ("VulkanGraphics")
+project ("Random")
 
 # Include sub-projects.
 add_subdirectory ("VulkanGraphics")
+add_subdirectory ("Random")
 
 set (CMAKE_CXX_STANDARD 20)
