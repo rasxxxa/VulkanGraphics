@@ -16,6 +16,12 @@ struct MeshPushConstant
 	float alpha;
 };
 
+struct SimpleMeshPushConstant
+{
+	glm::mat4 renderMatrix;
+	float alpha;
+};
+
 struct AllocatedImage
 {
 	VkImage image;

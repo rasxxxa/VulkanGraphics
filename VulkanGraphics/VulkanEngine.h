@@ -25,15 +25,15 @@ private:
 		VkImageView imageView;
 	};
 
+	std::unordered_map<VkPipeline, VkPipelineLayout> m_pipelineMAPlayouts;
+
 	struct RenderObject 
 	{
 		Mesh* mesh;
-
 		glm::mat4 transformMatrix;
-
 		float alpha = 1.0f;
-
 		int texId = -1;
+		VkPipeline pipeline;
 	};
 
 	std::vector<RenderObject> m_renderables;
@@ -162,8 +162,8 @@ private:
 	VkPipelineColorBlendAttachmentState m_colorBlendAttachment;
 	VkPipelineMultisampleStateCreateInfo m_multisampling;
 	VkPipeline BuildPipeline(VkDevice device, VkRenderPass pass);
-	VkPipelineLayout m_pipelineLayout;
-	VkPipeline m_pipeline;
+	VkPipelineLayout m_texturePipelineLayout, m_simpleObjectPipelineLayout;
+	VkPipeline m_texturePipeline, m_simpleObjectPipeline;
 	VkPipelineDepthStencilStateCreateInfo m_depthStencil;
 #pragma endregion
 

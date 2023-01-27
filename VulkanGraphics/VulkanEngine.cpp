@@ -386,7 +386,7 @@ void VulkanEngine::InitPipelines()
 	{
 		std::cout << "Frag shader loaded" << std::endl;
 	}
-	
+
 	if (!LoadShaderModule("../../../../VulkanGraphics/Shaders/vert.spv", &vertShader))
 	{
 		std::cout << "Error loading vert shader" << std::endl;
@@ -396,8 +396,27 @@ void VulkanEngine::InitPipelines()
 		std::cout << "Vert shader loaded" << std::endl;
 	}
 
+	VkShaderModule simpleFragShader, simpleVertShader;
+	if (!LoadShaderModule("../../../../VulkanGraphics/Shaders/frag_line.spv", &simpleFragShader))
+	{
+		std::cout << "Error loading frag shader" << std::endl;
+	}
+	else
+	{
+		std::cout << "Frag shader loaded" << std::endl;
+	}
+
+	if (!LoadShaderModule("../../../../VulkanGraphics/Shaders/vert_line.spv", &simpleVertShader))
+	{
+		std::cout << "Error loading vert shader" << std::endl;
+	}
+	else
+	{
+		std::cout << "Vert shader loaded" << std::endl;
+	}
+
 	//build the pipeline layout that controls the inputs/outputs of the shader
-    //we are not using descriptor sets or other systems yet, so no need to use anything other than empty default
+	//we are not using descriptor sets or other systems yet, so no need to use anything other than empty default
 	VkPipelineLayoutCreateInfo pipeline_layout_info = VkInit::PipelineLayoutCreateInfo();
 
 	//setup push constants
@@ -417,8 +436,8 @@ void VulkanEngine::InitPipelines()
 	pipeline_layout_info.setLayoutCount = layouts.size();
 	pipeline_layout_info.pSetLayouts = layouts.data();
 
-	VK_CHECK(vkCreatePipelineLayout(m_logicalDevice, &pipeline_layout_info, nullptr, &m_pipelineLayout));
-	m_deleter.Push([this]() { vkDestroyPipelineLayout(m_logicalDevice, m_pipelineLayout, nullptr); });
+	VK_CHECK(vkCreatePipelineLayout(m_logicalDevice, &pipeline_layout_info, nullptr, &m_texturePipelineLayout));
+	m_deleter.Push([this]() { vkDestroyPipelineLayout(m_logicalDevice, m_texturePipelineLayout, nullptr); });
 
 	// layout and shader modules creation
 
@@ -467,10 +486,39 @@ void VulkanEngine::InitPipelines()
 	m_colorBlendAttachment = VkInit::ColorBlendAttachmentState();
 
 	//finally build the pipeline
-	m_pipeline = BuildPipeline(m_logicalDevice, m_renderPass);
-	m_deleter.Push([this]() { vkDestroyPipeline(m_logicalDevice, m_pipeline, nullptr); });
+	m_texturePipeline = BuildPipeline(m_logicalDevice, m_renderPass);
+	m_pipelineMAPlayouts[m_texturePipeline] = m_texturePipelineLayout;
+	m_deleter.Push([this]() { vkDestroyPipeline(m_logicalDevice, m_texturePipeline, nullptr); });
 
+	std::vector<VkDescriptorSetLayout> simpleObjectSets = { m_globalSetLayout };
 
+	VkPushConstantRange push_constant_simple_object;
+	push_constant.offset = 0;
+	push_constant.size = sizeof(SimpleMeshPushConstant);
+	push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+	pipeline_layout_info.pPushConstantRanges = &push_constant;
+	pipeline_layout_info.pushConstantRangeCount = 1;
+
+	pipeline_layout_info.setLayoutCount = simpleObjectSets.size();
+	pipeline_layout_info.pSetLayouts = simpleObjectSets.data();
+
+	VK_CHECK(vkCreatePipelineLayout(m_logicalDevice, &pipeline_layout_info, nullptr, &m_simpleObjectPipelineLayout));
+	m_deleter.Push([this]() { vkDestroyPipelineLayout(m_logicalDevice, m_simpleObjectPipelineLayout, nullptr); });
+
+	m_shaderStages.clear();
+	m_shaderStages.push_back(
+		VkInit::PipeLineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, simpleVertShader));
+
+	m_shaderStages.push_back(
+		VkInit::PipeLineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, simpleFragShader));
+
+	m_simpleObjectPipeline = BuildPipeline(m_logicalDevice, m_renderPass);
+	m_deleter.Push([this]() { vkDestroyPipeline(m_logicalDevice, m_simpleObjectPipeline, nullptr); });
+	m_pipelineMAPlayouts[m_simpleObjectPipeline] = m_simpleObjectPipelineLayout;
+
+	vkDestroyShaderModule(m_logicalDevice, simpleFragShader, nullptr);
+	vkDestroyShaderModule(m_logicalDevice, simpleVertShader, nullptr);
 	vkDestroyShaderModule(m_logicalDevice, fragShader, nullptr);
 	vkDestroyShaderModule(m_logicalDevice, vertShader, nullptr);
 }
@@ -612,8 +660,31 @@ void VulkanEngine::LoadMesh()
 
 		map.transformMatrix = glm::translate(glm::vec3{x, y ,0 });
 		map.texId = CreateTextureDescriptor(m_loadedTextures[fullImage].imageView, m_sampler);
+		map.pipeline = m_texturePipeline;
 		m_renderables.push_back(map);
 	}
+
+	for (int i = 0; i < 100; i++)
+	{
+		Mesh mesh;
+		UploadMesh(mesh);
+		std::string fullImage = imgName;
+		fullImage.append(std::to_string(i));
+		fullImage.append("OBJ");
+
+		m_meshes[fullImage] = mesh;
+		RenderObject map;
+		map.mesh = &m_meshes[fullImage];
+
+		float x = rand.Get(-5.5f, 5.5f);
+		float y = rand.Get(-5.5f, 5.5f);
+
+		map.transformMatrix = glm::translate(glm::vec3{ x, y ,0 });
+		map.pipeline = m_simpleObjectPipeline;
+		m_renderables.push_back(map);
+	}
+
+
 }
 
 void VulkanEngine::InitDescriptors()
@@ -907,22 +978,40 @@ void VulkanEngine::DrawObjects(VkCommandBuffer cmd)
 	memcpy(data, &camData, sizeof(GPUCameraData));
 
 	vmaUnmapMemory(m_allocator, GetCurrentFrame().m_cameraBuffer.allocation);
-	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+
+
+	VkPipeline oldPipeline = nullptr;
+
 	for (auto& renderable : m_renderables)
 	{
-		MeshPushConstant constants;
-		constants.renderMatrix = renderable.transformMatrix;
-		constants.alpha = renderable.alpha;
-		constants.hasTexture = (renderable.texId >= 0)? 1.0f : 0.0f;
+		if (oldPipeline != renderable.pipeline)
+		{
+			oldPipeline = renderable.pipeline;
+			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, oldPipeline);
+		}
 
-		vkCmdPushConstants(cmd, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstant), &constants);
+		if (oldPipeline == m_simpleObjectPipeline)
+		{
+			SimpleMeshPushConstant constants;
+			constants.renderMatrix = renderable.transformMatrix;
+			constants.alpha = renderable.alpha;
+			vkCmdPushConstants(cmd, m_pipelineMAPlayouts[oldPipeline], VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SimpleMeshPushConstant), &constants);
+		}
+		else if (oldPipeline == m_texturePipeline)
+		{
+			MeshPushConstant constants;
+			constants.renderMatrix = renderable.transformMatrix;
+			constants.alpha = renderable.alpha;
+			constants.hasTexture = (renderable.texId >= 0) ? 1.0f : 0.0f;
+			vkCmdPushConstants(cmd, m_pipelineMAPlayouts[oldPipeline], VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstant), &constants);
+		}
 
 		Frame& val = GetCurrentFrame();
 		std::vector<VkDescriptorSet> sets = { val.m_globalDescriptor };
 		if (renderable.texId >= 0)
 			sets.push_back(m_samplersDescriptorSets[renderable.texId]);
 
-		vkCmdBindDescriptorSets(val.m_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout,
+		vkCmdBindDescriptorSets(val.m_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_texturePipelineLayout,
 			0, static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
 
 		VkDeviceSize offset = 0;
@@ -975,7 +1064,7 @@ VkPipeline VulkanEngine::BuildPipeline(VkDevice device, VkRenderPass pass)
 	pipelineInfo.pRasterizationState = &m_rasterizer;
 	pipelineInfo.pMultisampleState = &m_multisampling;
 	pipelineInfo.pColorBlendState = &colorBlending;
-	pipelineInfo.layout = m_pipelineLayout;
+	pipelineInfo.layout = m_texturePipelineLayout;
 	pipelineInfo.renderPass = pass;
 	pipelineInfo.subpass = 0;
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
