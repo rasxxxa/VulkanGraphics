@@ -8,8 +8,7 @@ layout(location = 1) in vec3 col;
 layout(location = 2) in vec2 tex;
 
 layout(set = 0, binding = 0) uniform UboViewProjection {
-	mat4 projection;
-	mat4 view;
+	mat4 projview;
 } uboViewProjection;
 
 struct ObjectData{
@@ -31,7 +30,7 @@ void main() {
 
 	ObjectData object = objectBuffer.objects[gl_BaseInstance];
 	mat4 modelMatrix = object.model;
-	mat4 transformMatrix = (uboViewProjection.projection * uboViewProjection.view * modelMatrix);
+	mat4 transformMatrix = (uboViewProjection.projview * modelMatrix);
 	gl_Position = transformMatrix * vec4(pos, 1.0f);
 	alpha = object.additional[0];
 	fragTex = tex;

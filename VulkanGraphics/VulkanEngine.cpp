@@ -987,8 +987,7 @@ void VulkanEngine::DrawObjects(VkCommandBuffer cmd)
 
 	//fill a GPU camera data struct
 	GPUCameraData camData;
-	camData.proj = projection;
-	camData.view = view;
+	camData.projview = projection * view;
 
 	//and copy it to the buffer
 	void* data;

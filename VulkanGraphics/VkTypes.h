@@ -28,8 +28,7 @@ struct AllocatedImage
 };
 
 struct GPUCameraData {
-	glm::mat4 proj;
-	glm::mat4 view;
+	glm::mat4 projview;
 };
 
 struct GPUObjectData {
