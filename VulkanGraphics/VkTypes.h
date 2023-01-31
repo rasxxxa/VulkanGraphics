@@ -18,7 +18,6 @@ struct MeshPushConstant
 
 struct SimpleMeshPushConstant
 {
-	glm::mat4 renderMatrix;
 	float alpha;
 };
 
@@ -31,4 +30,9 @@ struct AllocatedImage
 struct GPUCameraData {
 	glm::mat4 proj;
 	glm::mat4 view;
+};
+
+struct GPUObjectData {
+	 glm::mat4 modelMatrix;
+	 glm::vec4 additionalInfo;
 };

@@ -5,7 +5,7 @@ layout(location = 1) in float alpha;
 
 layout(location = 0) out vec4 outColour; 	// Final output colour (must also have location
 
-void main() 
-{
-	outColour = vec4(fragCol, 1.0);
+void main() {
+		vec4 color = vec4(fragCol, alpha);
+		outColour = color;
 }

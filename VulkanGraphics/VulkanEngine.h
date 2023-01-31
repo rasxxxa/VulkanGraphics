@@ -39,6 +39,7 @@ private:
 	std::vector<RenderObject> m_renderables;
 
 	VkDescriptorSetLayout m_globalSetLayout;
+	VkDescriptorSetLayout m_objectSetLayout;
 	VkDescriptorPool m_descriptorPool;
 
 	struct Frame
@@ -51,6 +52,9 @@ private:
 
 		AllocatedBuffer m_cameraBuffer;
 		VkDescriptorSet m_globalDescriptor;
+
+		AllocatedBuffer m_objectBuffer;
+		VkDescriptorSet m_objectDescriptor;
 	};
 
 	struct UploadContext 
@@ -161,7 +165,7 @@ private:
 	VkPipelineRasterizationStateCreateInfo m_rasterizer;
 	VkPipelineColorBlendAttachmentState m_colorBlendAttachment;
 	VkPipelineMultisampleStateCreateInfo m_multisampling;
-	VkPipeline BuildPipeline(VkDevice device, VkRenderPass pass);
+	VkPipeline BuildPipeline(VkDevice device, VkRenderPass pass, VkPipelineLayout pipelineLayout);
 	VkPipelineLayout m_texturePipelineLayout, m_simpleObjectPipelineLayout;
 	VkPipeline m_texturePipeline, m_simpleObjectPipeline;
 	VkPipelineDepthStencilStateCreateInfo m_depthStencil;

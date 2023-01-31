@@ -82,7 +82,11 @@ void VulkanEngine::InitVulkan()
 		.value();
 
 	vkb::DeviceBuilder deviceBuilder(physicalDevice);
-	vkb::Device vkbDevice = deviceBuilder.build().value();
+	VkPhysicalDeviceShaderDrawParametersFeatures shader_draw_parameters_features = {};
+	shader_draw_parameters_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
+	shader_draw_parameters_features.pNext = nullptr;
+	shader_draw_parameters_features.shaderDrawParameters = VK_TRUE;
+	vkb::Device vkbDevice = deviceBuilder.add_pNext(&shader_draw_parameters_features).build().value();
 
 	m_logicalDevice = vkbDevice.device;
 	m_physicalDevice = physicalDevice.physical_device;
@@ -419,19 +423,7 @@ void VulkanEngine::InitPipelines()
 	//we are not using descriptor sets or other systems yet, so no need to use anything other than empty default
 	VkPipelineLayoutCreateInfo pipeline_layout_info = VkInit::PipelineLayoutCreateInfo();
 
-	//setup push constants
-	VkPushConstantRange push_constant;
-	//this push constant range starts at the beginning
-	push_constant.offset = 0;
-	//this push constant range takes up the size of a MeshPushConstants struct
-	push_constant.size = sizeof(MeshPushConstant);
-	//this push constant range is accessible only in the vertex shader
-	push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-	pipeline_layout_info.pPushConstantRanges = &push_constant;
-	pipeline_layout_info.pushConstantRangeCount = 1;
-
-	std::vector<VkDescriptorSetLayout> layouts = { m_globalSetLayout, m_singleTextureSetLayout };
+	std::vector<VkDescriptorSetLayout> layouts = { m_globalSetLayout, m_objectSetLayout, m_singleTextureSetLayout };
 
 	pipeline_layout_info.setLayoutCount = layouts.size();
 	pipeline_layout_info.pSetLayouts = layouts.data();
@@ -486,19 +478,11 @@ void VulkanEngine::InitPipelines()
 	m_colorBlendAttachment = VkInit::ColorBlendAttachmentState();
 
 	//finally build the pipeline
-	m_texturePipeline = BuildPipeline(m_logicalDevice, m_renderPass);
+	m_texturePipeline = BuildPipeline(m_logicalDevice, m_renderPass, m_texturePipelineLayout);
 	m_pipelineMAPlayouts[m_texturePipeline] = m_texturePipelineLayout;
 	m_deleter.Push([this]() { vkDestroyPipeline(m_logicalDevice, m_texturePipeline, nullptr); });
 
-	std::vector<VkDescriptorSetLayout> simpleObjectSets = { m_globalSetLayout };
-
-	VkPushConstantRange push_constant_simple_object;
-	push_constant.offset = 0;
-	push_constant.size = sizeof(SimpleMeshPushConstant);
-	push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-	pipeline_layout_info.pPushConstantRanges = &push_constant;
-	pipeline_layout_info.pushConstantRangeCount = 1;
+	std::vector<VkDescriptorSetLayout> simpleObjectSets = { m_globalSetLayout, m_objectSetLayout };
 
 	pipeline_layout_info.setLayoutCount = simpleObjectSets.size();
 	pipeline_layout_info.pSetLayouts = simpleObjectSets.data();
@@ -513,7 +497,14 @@ void VulkanEngine::InitPipelines()
 	m_shaderStages.push_back(
 		VkInit::PipeLineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, simpleFragShader));
 
-	m_simpleObjectPipeline = BuildPipeline(m_logicalDevice, m_renderPass);
+	vertexDescription = Vertex::GetVertexInputDescription();
+	vertexDescription.attributes.pop_back();
+	m_vertexInputInfo.vertexAttributeDescriptionCount = vertexDescription.attributes.size();
+	m_vertexInputInfo.pVertexAttributeDescriptions = vertexDescription.attributes.data();
+
+	m_vertexInputInfo.vertexBindingDescriptionCount = vertexDescription.bindings.size();
+	m_vertexInputInfo.pVertexBindingDescriptions = vertexDescription.bindings.data();
+	m_simpleObjectPipeline = BuildPipeline(m_logicalDevice, m_renderPass, m_simpleObjectPipelineLayout);
 	m_deleter.Push([this]() { vkDestroyPipeline(m_logicalDevice, m_simpleObjectPipeline, nullptr); });
 	m_pipelineMAPlayouts[m_simpleObjectPipeline] = m_simpleObjectPipelineLayout;
 
@@ -658,16 +649,25 @@ void VulkanEngine::LoadMesh()
 		float x = rand.Get(-5.5f, 5.5f);
 		float y = rand.Get(-5.5f, 5.5f);
 
-		map.transformMatrix = glm::translate(glm::vec3{x, y ,0 });
+		map.transformMatrix = glm::translate(glm::vec3{x, y, 0});
 		map.texId = CreateTextureDescriptor(m_loadedTextures[fullImage].imageView, m_sampler);
 		map.pipeline = m_texturePipeline;
 		m_renderables.push_back(map);
 	}
 
-	for (int i = 0; i < 100; i++)
+	for (int i = 0; i < 10; i++)
 	{
 		Mesh mesh;
+		float r, g, b;
+		r = rand.Get(0.0f, 1.0f);
+		g = rand.Get(0.0f, 1.0f);
+		b = rand.Get(0.0f, 1.0f);
+
+		for (int j = 0; j < 6; j++)
+			mesh.m_vertices[j].color = glm::vec3(r, g, b);
+
 		UploadMesh(mesh);
+		
 		std::string fullImage = imgName;
 		fullImage.append(std::to_string(i));
 		fullImage.append("OBJ");
@@ -676,8 +676,8 @@ void VulkanEngine::LoadMesh()
 		RenderObject map;
 		map.mesh = &m_meshes[fullImage];
 
-		float x = rand.Get(-5.5f, 5.5f);
-		float y = rand.Get(-5.5f, 5.5f);
+		float x = rand.Get(-10.5f, 10.5f);
+		float y = rand.Get(-10.5f, 10.5f);
 
 		map.transformMatrix = glm::translate(glm::vec3{ x, y ,0 });
 		map.pipeline = m_simpleObjectPipeline;
@@ -689,18 +689,18 @@ void VulkanEngine::LoadMesh()
 
 void VulkanEngine::InitDescriptors()
 {
-	VkDescriptorPoolSize vpPoolSize = {};
-	vpPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	vpPoolSize.descriptorCount = static_cast<uint32_t>(FRAMES);
-
-	std::vector<VkDescriptorPoolSize> poolSyzes = { vpPoolSize/*, vpModelPoolSize*/ };
+	std::vector<VkDescriptorPoolSize> sizes =
+	{
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10 },
+	};
 
 
 	VkDescriptorPoolCreateInfo poolCreateInfo = {};
 	poolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolCreateInfo.maxSets = static_cast<uint32_t>(FRAMES);
-	poolCreateInfo.poolSizeCount = static_cast<uint32_t>(poolSyzes.size());
-	poolCreateInfo.pPoolSizes = poolSyzes.data();
+	poolCreateInfo.maxSets = 10;
+	poolCreateInfo.poolSizeCount = static_cast<uint32_t>(sizes.size());
+	poolCreateInfo.pPoolSizes = sizes.data();
 
 
 	VK_CHECK(vkCreateDescriptorPool(m_logicalDevice , &poolCreateInfo, nullptr, &m_descriptorPool));
@@ -721,6 +721,17 @@ void VulkanEngine::InitDescriptors()
 	VK_CHECK(vkCreateDescriptorPool(m_logicalDevice, &samplerPoolCreateInfo, nullptr, &m_samplerDescriptorPool));
 	m_deleter.Push([this]() {vkDestroyDescriptorPool(m_logicalDevice, m_samplerDescriptorPool, nullptr); });
 
+	VkDescriptorSetLayoutBinding objectBind = VkInit::DescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0);
+
+	VkDescriptorSetLayoutCreateInfo set2info = {};
+	set2info.bindingCount = 1;
+	set2info.flags = 0;
+	set2info.pNext = nullptr;
+	set2info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	set2info.pBindings = &objectBind;
+
+	vkCreateDescriptorSetLayout(m_logicalDevice, &set2info, nullptr, &m_objectSetLayout);
+	m_deleter.Push([this]() {vkDestroyDescriptorSetLayout(m_logicalDevice, m_objectSetLayout, nullptr); });
 
 	VkDescriptorSetLayoutBinding vpLayoutBinding = {};
 	vpLayoutBinding.binding = 0;
@@ -759,46 +770,50 @@ void VulkanEngine::InitDescriptors()
 	VK_CHECK(vkCreateDescriptorSetLayout(m_logicalDevice, &textureLayoutCreateInfo, nullptr, &m_singleTextureSetLayout));
 	m_deleter.Push([this]() {vkDestroyDescriptorSetLayout(m_logicalDevice, m_singleTextureSetLayout, nullptr); });
 
-	std::vector<VkDescriptorSetLayout> setLayouts(FRAMES, m_globalSetLayout);
-
-	VkDescriptorSetAllocateInfo setAllocInfo = {};
-	setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	setAllocInfo.descriptorPool = m_descriptorPool;									// Pool to allocate Descriptor Set from
-	setAllocInfo.descriptorSetCount = static_cast<uint32_t>(FRAMES);	// Number of sets to allocate
-	setAllocInfo.pSetLayouts = setLayouts.data();
-
-	std::vector<VkDescriptorSet> descriptorToBind;
-	descriptorToBind.resize(FRAMES);
-
-	vkAllocateDescriptorSets(m_logicalDevice, &setAllocInfo, descriptorToBind.data());
 	for (int i = 0; i < FRAMES; i++)
 	{
+		VkDescriptorSetAllocateInfo setAllocInfo = {};
+		setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		setAllocInfo.descriptorPool = m_descriptorPool;									// Pool to allocate Descriptor Set from
+		setAllocInfo.descriptorSetCount = 1;	// Number of sets to allocate
+		setAllocInfo.pSetLayouts = &m_globalSetLayout;
+
 		m_frames[i].m_cameraBuffer = CreateBuffer(sizeof(GPUCameraData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-		m_frames[i].m_globalDescriptor = descriptorToBind[i];
+		vkAllocateDescriptorSets(m_logicalDevice, &setAllocInfo, &m_frames[i].m_globalDescriptor);
 	}
 
 	for (size_t i = 0; i < FRAMES; i++)
 	{
-		// Buffer info and data offset info
-		VkDescriptorBufferInfo vpBufferInfo = {};
-		vpBufferInfo.buffer = m_frames[i].m_cameraBuffer.buffer;		// Buffer to get data from
-		vpBufferInfo.offset = 0;						// Position of start of data
-		vpBufferInfo.range = sizeof(GPUCameraData);				// Size of data
 
-		// Data about connection between binding and buffer
-		VkWriteDescriptorSet vpSetWrite = {};
-		vpSetWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		vpSetWrite.dstSet = m_frames[i].m_globalDescriptor;								// Descriptor Set to update
-		vpSetWrite.dstBinding = 0;											// Binding to update (matches with binding on layout/shader)
-		vpSetWrite.dstArrayElement = 0;									// Index in array to update
-		vpSetWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;		// Type of descriptor
-		vpSetWrite.descriptorCount = 1;									// Amount to update
-		vpSetWrite.pBufferInfo = &vpBufferInfo;							// Information about buffer data to bind
-		std::vector<VkWriteDescriptorSet> setWrites = { vpSetWrite/*,modelSetWrite */ };
+		const int MAX_OBJECTS = 10000;
+		m_frames[i].m_objectBuffer = CreateBuffer((sizeof(GPUObjectData)) * MAX_OBJECTS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
+		VkDescriptorSetAllocateInfo objectSetAlloc = {};
+		objectSetAlloc.pNext = nullptr;
+		objectSetAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		objectSetAlloc.descriptorPool = m_descriptorPool;
+		objectSetAlloc.descriptorSetCount = 1;
+		objectSetAlloc.pSetLayouts = &m_objectSetLayout;
 
-		// Update the descriptor sets with new buffer/binding info
-		vkUpdateDescriptorSets(m_logicalDevice, static_cast<uint32_t>(setWrites.size()), setWrites.data(), 0, nullptr);
+		vkAllocateDescriptorSets(m_logicalDevice, &objectSetAlloc, &m_frames[i].m_objectDescriptor);
+
+		VkDescriptorBufferInfo cameraInfo;
+		cameraInfo.buffer = m_frames[i].m_cameraBuffer.buffer;
+		cameraInfo.offset = 0;
+		cameraInfo.range = sizeof(GPUCameraData);
+
+		VkDescriptorBufferInfo objectBufferInfo;
+		objectBufferInfo.buffer = m_frames[i].m_objectBuffer.buffer;
+		objectBufferInfo.offset = 0;
+		objectBufferInfo.range = (sizeof(GPUObjectData)) * MAX_OBJECTS;
+
+		VkWriteDescriptorSet cameraWrite = VkInit::WriteDescriptorBuffer(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, m_frames[i].m_globalDescriptor, &cameraInfo, 0);
+
+		VkWriteDescriptorSet objectWrite = VkInit::WriteDescriptorBuffer(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, m_frames[i].m_objectDescriptor, &objectBufferInfo, 0);
+
+		std::vector<VkWriteDescriptorSet> setWrites = { cameraWrite, objectWrite };
+
+		vkUpdateDescriptorSets(m_logicalDevice, setWrites.size(), setWrites.data(), 0, nullptr);
 	}
 
 }
@@ -979,54 +994,48 @@ void VulkanEngine::DrawObjects(VkCommandBuffer cmd)
 
 	vmaUnmapMemory(m_allocator, GetCurrentFrame().m_cameraBuffer.allocation);
 
+	void* objectData;
+	vmaMapMemory(m_allocator, GetCurrentFrame().m_objectBuffer.allocation, &objectData);
+
+	GPUObjectData* objectSSBO = (GPUObjectData*)objectData;
+	
+	for (int i = 0; i < m_renderables.size(); i++)
+	{
+		RenderObject& object = m_renderables[i];
+		objectSSBO[i].modelMatrix = object.transformMatrix;
+		objectSSBO[i].additionalInfo[0] = 1.0f;
+	}
+
+	vmaUnmapMemory(m_allocator, GetCurrentFrame().m_objectBuffer.allocation);
+
 
 	VkPipeline oldPipeline = nullptr;
 
-	for (auto& renderable : m_renderables)
+	for (int i = 0; i <  m_renderables.size(); i++)
 	{
-		if (oldPipeline != renderable.pipeline)
-		{
-			oldPipeline = renderable.pipeline;
-			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, oldPipeline);
-		}
 
-		if (oldPipeline == m_simpleObjectPipeline)
-		{
-			SimpleMeshPushConstant constants;
-			constants.renderMatrix = renderable.transformMatrix;
-			constants.alpha = renderable.alpha;
-			vkCmdPushConstants(cmd, m_pipelineMAPlayouts[oldPipeline], VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SimpleMeshPushConstant), &constants);
-		}
-		else if (oldPipeline == m_texturePipeline)
-		{
-			MeshPushConstant constants;
-			constants.renderMatrix = renderable.transformMatrix;
-			constants.alpha = renderable.alpha;
-			constants.hasTexture = (renderable.texId >= 0) ? 1.0f : 0.0f;
-			vkCmdPushConstants(cmd, m_pipelineMAPlayouts[oldPipeline], VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstant), &constants);
-		}
+		oldPipeline = m_renderables[i].pipeline;
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, oldPipeline);
 
 		Frame& val = GetCurrentFrame();
-		std::vector<VkDescriptorSet> sets = { val.m_globalDescriptor };
-		if (renderable.texId >= 0)
-			sets.push_back(m_samplersDescriptorSets[renderable.texId]);
+		std::vector<VkDescriptorSet> sets = { val.m_globalDescriptor, val.m_objectDescriptor };
 
-		vkCmdBindDescriptorSets(val.m_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_texturePipelineLayout,
+		if (m_renderables[i].texId >= 0)
+			sets.push_back(m_samplersDescriptorSets[m_renderables[i].texId]);
+
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineMAPlayouts[oldPipeline],
 			0, static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
 
 		VkDeviceSize offset = 0;
-		vkCmdBindVertexBuffers(cmd, 0, 1, &renderable.mesh->m_vertexBuffer.buffer, &offset);
+		vkCmdBindVertexBuffers(cmd, 0, 1, &m_renderables[i].mesh->m_vertexBuffer.buffer, &offset);
 
-		vkCmdDraw(cmd, renderable.mesh->m_vertices.size(), 1, 0, 0);
+		vkCmdDraw(cmd, m_renderables[i].mesh->m_vertices.size(), 1, 0, i);
 	}
-
-
-
 }
 
 
 
-VkPipeline VulkanEngine::BuildPipeline(VkDevice device, VkRenderPass pass)
+VkPipeline VulkanEngine::BuildPipeline(VkDevice device, VkRenderPass pass, VkPipelineLayout pipelineLayout)
 {
 	//make viewport state from our stored viewport and scissor.
     //at the moment we won't support multiple viewports or scissors
@@ -1064,7 +1073,7 @@ VkPipeline VulkanEngine::BuildPipeline(VkDevice device, VkRenderPass pass)
 	pipelineInfo.pRasterizationState = &m_rasterizer;
 	pipelineInfo.pMultisampleState = &m_multisampling;
 	pipelineInfo.pColorBlendState = &colorBlending;
-	pipelineInfo.layout = m_texturePipelineLayout;
+	pipelineInfo.layout = pipelineLayout;
 	pipelineInfo.renderPass = pass;
 	pipelineInfo.subpass = 0;
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
@@ -1150,6 +1159,7 @@ void VulkanEngine::CleanUp()
 	for (int i = 0; i < FRAMES; i++)
 	{
 		vmaDestroyBuffer(m_allocator, m_frames[i].m_cameraBuffer.buffer, m_frames[i].m_cameraBuffer.allocation);
+		vmaDestroyBuffer(m_allocator, m_frames[i].m_objectBuffer.buffer, m_frames[i].m_objectBuffer.allocation);
 	}
 
 	for (auto& images : m_loadedTextures)

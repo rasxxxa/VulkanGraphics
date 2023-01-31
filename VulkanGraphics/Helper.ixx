@@ -17,7 +17,7 @@ export
 	struct VulkanVersion
 	{
 		ushort major = 1;
-		ushort minor = 3;
+		ushort minor = 1;
 	} VkVersion;
 
 	constexpr ushort FRAMES = 2;

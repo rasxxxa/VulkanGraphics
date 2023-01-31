@@ -13,6 +13,11 @@ struct VertexInputDescription
 	VkPipelineVertexInputStateCreateFlags flags = 0;
 };
 
+struct SimpleVertex
+{
+	glm::vec3 position;
+	glm::vec3 color;
+};
 
 struct Vertex
 {
@@ -21,7 +26,9 @@ struct Vertex
 	glm::vec2 uv;
 
 	static VertexInputDescription GetVertexInputDescription();
+	static VertexInputDescription GetShortVertexInputDescription();
 };
+
 
 class Mesh
 {
