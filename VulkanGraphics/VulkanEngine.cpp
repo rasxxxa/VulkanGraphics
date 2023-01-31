@@ -631,22 +631,21 @@ void VulkanEngine::LoadMesh()
 	const std::string path = "../../../../assets/";
 	const std::string imgName = "Slike";
 	Random<float> rand;
+	static Mesh universalMesh;
+	UploadMesh(universalMesh);
+	m_meshes["textureMash"] = universalMesh;
 	for (int i = 10000; i < 10010; i++)
 	{
-		Mesh mesh;
-		UploadMesh(mesh);
 		std::string fullImage = imgName;
 		fullImage.append(std::to_string(i));
 		fullImage.append(".png");
-
-		m_meshes[fullImage] = mesh;
 		std::string fullPath = path;
 		fullPath.append(fullImage);
 
 		LoadImage(fullPath.c_str(), fullImage.c_str());
 
 		RenderObject map;
-		map.mesh = &m_meshes[fullImage];
+		map.mesh = &universalMesh;
 
 		float x = rand.Get(-5.5f, 5.5f);
 		float y = rand.Get(-5.5f, 5.5f);
@@ -657,24 +656,27 @@ void VulkanEngine::LoadMesh()
 		m_renderables.push_back(map);
 	}
 
-	for (int i = 0; i < 10; i++)
+	for (int i = 0; i < 500; i++)
 	{
-		Mesh mesh;
+
+		Mesh coloredMesh;
+
 		float r, g, b;
 		r = rand.Get(0.0f, 1.0f);
 		g = rand.Get(0.0f, 1.0f);
 		b = rand.Get(0.0f, 1.0f);
 
 		for (int j = 0; j < 6; j++)
-			mesh.m_vertices[j].color = glm::vec3(r, g, b);
+			coloredMesh.m_vertices[j].color = glm::vec3(r, g, b);
 
-		UploadMesh(mesh);
+		UploadMesh(coloredMesh);
 		
 		std::string fullImage = imgName;
 		fullImage.append(std::to_string(i));
 		fullImage.append("OBJ");
 
-		m_meshes[fullImage] = mesh;
+		m_meshes[fullImage] = coloredMesh;
+
 		RenderObject map;
 		map.mesh = &m_meshes[fullImage];
 
@@ -1012,24 +1014,34 @@ void VulkanEngine::DrawObjects(VkCommandBuffer cmd)
 
 
 	VkPipeline oldPipeline = nullptr;
-
+	Mesh* earlierMesh = nullptr;
 	for (int i = 0; i <  m_renderables.size(); i++)
 	{
+		if (oldPipeline != m_renderables[i].pipeline)
+		{
+			oldPipeline = m_renderables[i].pipeline;
+			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, oldPipeline);
 
-		oldPipeline = m_renderables[i].pipeline;
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, oldPipeline);
+			Frame& val = GetCurrentFrame();
+			std::vector<VkDescriptorSet> sets = { val.m_globalDescriptor, val.m_objectDescriptor };
 
-		Frame& val = GetCurrentFrame();
-		std::vector<VkDescriptorSet> sets = { val.m_globalDescriptor, val.m_objectDescriptor };
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineMAPlayouts[oldPipeline],
+				0, static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
+
+		}
 
 		if (m_renderables[i].texId >= 0)
-			sets.push_back(m_samplersDescriptorSets[m_renderables[i].texId]);
+		{
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineMAPlayouts[oldPipeline],
+				2, 1, &m_samplersDescriptorSets[m_renderables[i].texId], 0, nullptr);
+		}
 
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineMAPlayouts[oldPipeline],
-			0, static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
-
-		VkDeviceSize offset = 0;
-		vkCmdBindVertexBuffers(cmd, 0, 1, &m_renderables[i].mesh->m_vertexBuffer.buffer, &offset);
+		if (earlierMesh != m_renderables[i].mesh)
+		{
+			earlierMesh = m_renderables[i].mesh;
+			VkDeviceSize offset = 0;
+			vkCmdBindVertexBuffers(cmd, 0, 1, &m_renderables[i].mesh->m_vertexBuffer.buffer, &offset);
+		}
 
 		vkCmdDraw(cmd, m_renderables[i].mesh->m_vertices.size(), 1, 0, i);
 	}
@@ -1220,12 +1232,11 @@ void VulkanEngine::Run()
 
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplSDL2_NewFrame(m_window);
-
 		ImGui::NewFrame();
-
-
-		//imgui commands
-		ImGui::ShowDemoWindow();
+		{
+			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+			ImGui::Text("Rendering: %d objects", m_renderables.size());
+		}
 
 		Draw();
 	}
