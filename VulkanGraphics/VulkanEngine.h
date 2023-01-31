@@ -10,7 +10,10 @@
 #include "Mesh.h"
 #include <unordered_map>
 #include "../Random/Random.h"
-
+#include "../imgui/imconfig.h"
+#include "../imgui/imgui.h"
+#include "../imgui/imgui_impl_vulkan.h"
+#include "../imgui/imgui_impl_sdl.h"
 import Helper;
 
 class VulkanEngine
@@ -148,6 +151,7 @@ private:
 
 	void UploadMesh(Mesh& mesh);
 	size_t PadUniformBufferSize(size_t originalSize);
+	void LoadImgGui();
 	//texture hashmap
 	std::unordered_map<std::string, Texture> m_loadedTextures;
 

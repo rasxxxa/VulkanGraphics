@@ -16,6 +16,15 @@ add_executable (VulkanGraphics
 "../Externals/vkbootstrap/VkBootstrap.cpp"
 "../Externals/glm/glm/glm.hpp"
 "../Externals/glm/glm/gtx/transform.hpp"
+"${CMAKE_SOURCE_DIR}/imgui/imgui.h"
+"${CMAKE_SOURCE_DIR}/imgui/imgui.cpp"
+
+"${CMAKE_SOURCE_DIR}/imgui/imgui_demo.cpp"
+"${CMAKE_SOURCE_DIR}/imgui/imgui_draw.cpp"
+"${CMAKE_SOURCE_DIR}/imgui/imgui_widgets.cpp"
+
+"${CMAKE_SOURCE_DIR}/imgui/imgui_impl_vulkan.cpp"
+"${CMAKE_SOURCE_DIR}/imgui/imgui_impl_sdl.cpp"
    "DeletionQueue.h" "DeletionQueue.cpp" "Mesh.h" "Mesh.cpp" "VkTypes.h")
 
 find_package(SDL2 REQUIRED)
@@ -26,9 +35,9 @@ find_package(SDL2 REQUIRED)
 
 find_package(Vulkan REQUIRED)
 target_link_libraries(VulkanGraphics Vulkan::Vulkan Vulkan::Headers)
-target_include_directories(VulkanGraphics PUBLIC ${Vulkan_INCLUDE_DIRS} Random)
+target_include_directories(VulkanGraphics PUBLIC ${Vulkan_INCLUDE_DIRS} Random ${CMAKE_SOURCE_DIR}/imgui)
 
-message(${CMAKE_SOURCE_DIR})
+message(${CMAKE_SOURCE_DIR} "")
 target_include_directories(VulkanGraphics PUBLIC ${CMAKE_SOURCE_DIR}/Externals)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
