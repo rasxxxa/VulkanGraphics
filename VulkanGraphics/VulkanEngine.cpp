@@ -543,7 +543,7 @@ void VulkanEngine::Draw()
 	//make a clear-color from frame number. This will flash with a 120*pi frame period.
 	VkClearValue clearValue;
 	//float flash = abs(sin(m_frameNumber / 120.f));
-	clearValue.color = { { 1.0f, 1.0f, 1.0f, 1.0f } };
+	clearValue.color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
 
 	VkClearValue depthValue;
 	depthValue.depthStencil.depth = 1.0f;
@@ -632,9 +632,21 @@ void VulkanEngine::LoadMesh()
 	const std::string imgName = "Slike";
 	Random<float> rand;
 	static Mesh universalMesh;
+	float r, g, b;
+	r = rand.Get(0.0f, 1.0f);
+	g = rand.Get(0.0f, 1.0f);
+	b = rand.Get(0.0f, 1.0f);
+
+	for (int j = 0; j < 6; j++)
+		universalMesh.m_vertices[j].color = glm::vec3(r, g, b);
+
+	for (int j = 0; j < 6; j++)
+	{
+		universalMesh.m_vertices[j].position -= 0.1f;
+	}
 	UploadMesh(universalMesh);
 	m_meshes["textureMash"] = universalMesh;
-	for (int i = 10000; i < 10010; i++)
+	for (int i = 10001; i < 10002; i++)
 	{
 		std::string fullImage = imgName;
 		fullImage.append(std::to_string(i));
@@ -644,49 +656,46 @@ void VulkanEngine::LoadMesh()
 
 		LoadImage(fullPath.c_str(), fullImage.c_str());
 
-		RenderObject map;
-		map.mesh = &universalMesh;
-
-		float x = rand.Get(-5.5f, 5.5f);
-		float y = rand.Get(-5.5f, 5.5f);
-
-		map.transformMatrix = glm::translate(glm::vec3{x, y, 0});
-		map.texId = CreateTextureDescriptor(m_loadedTextures[fullImage].imageView, m_sampler);
-		map.pipeline = m_texturePipeline;
+		Renderable map;
+		map.SetMesh(&universalMesh);
+		glm::mat4 x = glm::mat4(1.0f);
+		//map.SetTexId(CreateTextureDescriptor(m_loadedTextures[fullImage].imageView, m_sampler));
+		map.SetPosition(0.0f, 0.0f);
+		map.SetPipeline(m_simpleObjectPipeline);
 		m_renderables.push_back(map);
 	}
 
-	for (int i = 0; i < 500; i++)
-	{
+	//for (int i = 0; i < 10000; i++)
+	//{
 
-		Mesh coloredMesh;
+	//	Mesh coloredMesh;
 
-		float r, g, b;
-		r = rand.Get(0.0f, 1.0f);
-		g = rand.Get(0.0f, 1.0f);
-		b = rand.Get(0.0f, 1.0f);
+	//	float r, g, b;
+	//	r = rand.Get(0.0f, 1.0f);
+	//	g = rand.Get(0.0f, 1.0f);
+	//	b = rand.Get(0.0f, 1.0f);
 
-		for (int j = 0; j < 6; j++)
-			coloredMesh.m_vertices[j].color = glm::vec3(r, g, b);
+	//	for (int j = 0; j < 6; j++)
+	//		coloredMesh.m_vertices[j].color = glm::vec3(r, g, b);
 
-		UploadMesh(coloredMesh);
-		
-		std::string fullImage = imgName;
-		fullImage.append(std::to_string(i));
-		fullImage.append("OBJ");
+	//	UploadMesh(coloredMesh);
+	//	
+	//	std::string fullImage = imgName;
+	//	fullImage.append(std::to_string(i));
+	//	fullImage.append("OBJ");
 
-		m_meshes[fullImage] = coloredMesh;
+	//	m_meshes[fullImage] = coloredMesh;
 
-		RenderObject map;
-		map.mesh = &m_meshes[fullImage];
+	//	RenderObject map;
+	//	map.mesh = &m_meshes[fullImage];
 
-		float x = rand.Get(-10.5f, 10.5f);
-		float y = rand.Get(-10.5f, 10.5f);
+	//	float x = rand.Get(-10.5f, 10.5f);
+	//	float y = rand.Get(-10.5f, 10.5f);
 
-		map.transformMatrix = glm::translate(glm::vec3{ x, y ,0 });
-		map.pipeline = m_simpleObjectPipeline;
-		m_renderables.push_back(map);
-	}
+	//	map.transformMatrix = glm::translate(glm::vec3{ x, y ,0 });
+	//	map.pipeline = m_simpleObjectPipeline;
+	//	m_renderables.push_back(map);
+	//}
 
 
 }
@@ -979,10 +988,10 @@ void VulkanEngine::ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& fu
 void VulkanEngine::DrawObjects(VkCommandBuffer cmd)
 {
 
-	glm::vec3 camPos = { 0.f,0.f,-10.f };
-
+	glm::vec3 camPos = { -1.0f,-1.0,-1.f };
+	//glm::vec3 camPos = { 0.0f,0.0,-1.f };
 	glm::mat4 view = glm::translate(glm::mat4(1.f), camPos);
-	glm::mat4 projection = glm::perspective(glm::radians(70.f), 800.f / 600.f, 0.1f, 200.0f);
+	glm::mat4 projection = glm::perspective(glm::radians(90.f), 1.0f, 0.1f, 200.0f);
 	projection[1][1] *= 1;
 
 	//fill a GPU camera data struct
@@ -1004,8 +1013,8 @@ void VulkanEngine::DrawObjects(VkCommandBuffer cmd)
 	
 	for (int i = 0; i < m_renderables.size(); i++)
 	{
-		RenderObject& object = m_renderables[i];
-		objectSSBO[i].modelMatrix = object.transformMatrix;
+		Renderable& object = m_renderables[i];
+		objectSSBO[i].modelMatrix = object.GetTransformMatrix();
 		objectSSBO[i].additionalInfo[0] = 1.0f;
 	}
 
@@ -1016,9 +1025,9 @@ void VulkanEngine::DrawObjects(VkCommandBuffer cmd)
 	Mesh* earlierMesh = nullptr;
 	for (int i = 0; i <  m_renderables.size(); i++)
 	{
-		if (oldPipeline != m_renderables[i].pipeline)
+		if (oldPipeline != m_renderables[i].GetPipeline())
 		{
-			oldPipeline = m_renderables[i].pipeline;
+			oldPipeline = m_renderables[i].GetPipeline();
 			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, oldPipeline);
 
 			Frame& val = GetCurrentFrame();
@@ -1029,20 +1038,20 @@ void VulkanEngine::DrawObjects(VkCommandBuffer cmd)
 
 		}
 
-		if (m_renderables[i].texId >= 0)
+		if (m_renderables[i].GetTexId() >= 0)
 		{
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineMAPlayouts[oldPipeline],
-				2, 1, &m_samplersDescriptorSets[m_renderables[i].texId], 0, nullptr);
+				2, 1, &m_samplersDescriptorSets[m_renderables[i].GetTexId()], 0, nullptr);
 		}
 
-		if (earlierMesh != m_renderables[i].mesh)
+		if (earlierMesh != m_renderables[i].GetMesh())
 		{
-			earlierMesh = m_renderables[i].mesh;
+			earlierMesh = m_renderables[i].GetMesh();
 			VkDeviceSize offset = 0;
-			vkCmdBindVertexBuffers(cmd, 0, 1, &m_renderables[i].mesh->m_vertexBuffer.buffer, &offset);
+			vkCmdBindVertexBuffers(cmd, 0, 1, &m_renderables[i].GetMesh()->m_vertexBuffer.buffer, &offset);
 		}
 
-		vkCmdDraw(cmd, m_renderables[i].mesh->m_vertices.size(), 1, 0, i);
+		vkCmdDraw(cmd, m_renderables[i].GetMesh()->m_vertices.size(), 1, 0, i);
 	}
 }
 
@@ -1227,6 +1236,26 @@ void VulkanEngine::Run()
 		{
 			ImGui_ImplSDL2_ProcessEvent(&e);
 			if (e.type == SDL_QUIT) bQuit = true;
+			if (e.type == SDL_KEYDOWN)
+			{
+				if (e.key.keysym.sym == 'a')
+				{
+					m_renderables[0].SetRotation(15.0f);
+				}
+				if (e.key.keysym.sym == 's')
+				{
+					m_renderables[0].SetPosition(-.1f, -0.1f);
+				}
+				if (e.key.keysym.sym == 'd')
+				{
+					m_renderables[0].SetPosition(0.5f, 0.5f);
+				}
+				if (e.key.keysym.sym == 'w')
+				{
+					m_renderables[0].SetPosition(1.0f, 1.0f);
+				}
+			}
+
 		}
 
 		ImGui_ImplVulkan_NewFrame();

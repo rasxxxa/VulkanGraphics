@@ -25,7 +25,7 @@ add_executable (VulkanGraphics
 
 "${CMAKE_SOURCE_DIR}/imgui/imgui_impl_vulkan.cpp"
 "${CMAKE_SOURCE_DIR}/imgui/imgui_impl_sdl.cpp"
-   "DeletionQueue.h" "DeletionQueue.cpp" "Mesh.h" "Mesh.cpp" "VkTypes.h")
+   "DeletionQueue.h" "DeletionQueue.cpp" "Mesh.h" "Mesh.cpp" "VkTypes.h" "Renderable.h" "Renderable.cpp")
 
 find_package(SDL2 REQUIRED)
     target_link_libraries(VulkanGraphics SDL2::SDL2 SDL2::SDL2main Random)

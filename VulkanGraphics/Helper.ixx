@@ -6,7 +6,7 @@ export
 {
 	struct SDLWindowSize
 	{
-		int width = 800;
+		int width = 600;
 		int height = 600;
 	};
 

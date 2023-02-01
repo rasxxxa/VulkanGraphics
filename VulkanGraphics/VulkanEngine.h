@@ -14,6 +14,7 @@
 #include "../imgui/imgui.h"
 #include "../imgui/imgui_impl_vulkan.h"
 #include "../imgui/imgui_impl_sdl.h"
+#include "Renderable.h"
 import Helper;
 
 class VulkanEngine
@@ -30,16 +31,7 @@ private:
 
 	std::unordered_map<VkPipeline, VkPipelineLayout> m_pipelineMAPlayouts;
 
-	struct RenderObject 
-	{
-		Mesh* mesh;
-		glm::mat4 transformMatrix;
-		float alpha = 1.0f;
-		int texId = -1;
-		VkPipeline pipeline;
-	};
-
-	std::vector<RenderObject> m_renderables;
+	std::vector<Renderable> m_renderables;
 
 	VkDescriptorSetLayout m_globalSetLayout;
 	VkDescriptorSetLayout m_objectSetLayout;
@@ -184,6 +176,7 @@ public:
 	VulkanEngine();
 	VulkanEngine(const VulkanEngine&) = delete;
 	VulkanEngine(const VulkanEngine&&) = delete;
+	Renderable& GetRenderable(int index) { return m_renderables[0]; };
 	void Init();
 	void Run();
 	void CleanUp();

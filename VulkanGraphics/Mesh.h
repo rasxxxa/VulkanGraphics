@@ -41,9 +41,9 @@ public:
 	{
 		//make the array 3 vertices long
 		m_vertices.resize(6);
-		m_vertices[0].position = { 2.5f, 2.5f, 0.0f };
-		m_vertices[1].position = { -2.5f, 2.5f, 0.0f };
-		m_vertices[2].position = { -2.5f, 0.0f, 0.0f };
+		m_vertices[0].position = { 0.2f, 0.2f, 0.0f };
+		m_vertices[1].position = { 0.0f, 0.2f, 0.0f };
+		m_vertices[2].position = { 0.0f, 0.0f, 0.0f };
 		m_vertices[0].uv.x = 1.0f;
 		m_vertices[0].uv.y = 1.0f;
 		m_vertices[1].uv.x = 0.0f;
@@ -51,9 +51,9 @@ public:
 		m_vertices[2].uv.x = 0.0f;
 		m_vertices[2].uv.y = 0.0f;
 
-		m_vertices[3].position = { -2.5f, 0.0f, 0.0f };
-		m_vertices[4].position = { 2.5f, 0.0f, 0.0f };
-		m_vertices[5].position = { 2.5f, 2.5f, 0.0f };
+		m_vertices[3].position = { 0.0f, 0.0f, 0.0f };
+		m_vertices[4].position = { 0.2f, 0.0f, 0.0f };
+		m_vertices[5].position = { 0.2f, 0.2f, 0.0f };
 		m_vertices[3].uv.x = 0.0f;
 		m_vertices[3].uv.y = 0.0f;
 		m_vertices[4].uv.x = 1.0f;
