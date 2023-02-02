@@ -34,4 +34,5 @@ public:
 	float& GetWidth() { return m_width; }
 	float& GetHeight() { return m_height; }
 	float& GetAngle() { return m_angle; }
+	float& GetAlphaRef() { return m_alpha; }
 };

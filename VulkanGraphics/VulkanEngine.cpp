@@ -1015,7 +1015,7 @@ void VulkanEngine::DrawObjects(VkCommandBuffer cmd)
 	{
 		Renderable& object = m_renderables[i];
 		objectSSBO[i].modelMatrix = object.GetTransformMatrix();
-		objectSSBO[i].additionalInfo[0] = 1.0f;
+		objectSSBO[i].additionalInfo[0] = object.GetAlpha();
 	}
 
 	vmaUnmapMemory(m_allocator, GetCurrentFrame().m_objectBuffer.allocation);
@@ -1273,6 +1273,7 @@ void VulkanEngine::Run()
 					{
 						ImGui::SliderFloat((obj + " X ").c_str(), &m_renderables[i].GetX(), 0.0f, 2.0f);
 						ImGui::SliderFloat((obj + " Y ").c_str(), &m_renderables[i].GetY(), 0.0f, 2.0f);
+						ImGui::SliderFloat((obj + " alfa").c_str(), &m_renderables[i].GetAlphaRef(), 0.0f, 1.0f);
 					}
 				}
 			}
