@@ -15,6 +15,7 @@ private:
 	float m_height;
 	float m_posX;
 	float m_posY;
+	float m_angle;
 public:
 	Renderable();
 	inline float GetAlpha() const { return m_alpha; }
@@ -28,4 +29,9 @@ public:
 	inline void SetTexId(int id) { this->m_texId = id; }
 	inline glm::mat4 GetTransformMatrix() const { return m_transformMatrix; };
 	void SetRotation(float angle);
+	float& GetX() { return m_transformMatrix[3].x; }
+	float& GetY() { return m_transformMatrix[3].y;; }
+	float& GetWidth() { return m_width; }
+	float& GetHeight() { return m_height; }
+	float& GetAngle() { return m_angle; }
 };

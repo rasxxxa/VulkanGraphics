@@ -1264,8 +1264,20 @@ void VulkanEngine::Run()
 		{
 			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 			ImGui::Text("Rendering: %d objects", m_renderables.size());
-		}
+			{
+				for (int i = 0; i < m_renderables.size(); i++)
+				{
+					std::string obj = "Renderable ";
+					obj.append(std::to_string(i));
+					if (ImGui::CollapsingHeader(obj.c_str()))
+					{
+						ImGui::SliderFloat((obj + " X ").c_str(), &m_renderables[i].GetX(), 0.0f, 2.0f);
+						ImGui::SliderFloat((obj + " Y ").c_str(), &m_renderables[i].GetY(), 0.0f, 2.0f);
+					}
+				}
+			}
 
+		}
 		Draw();
 	}
 }
