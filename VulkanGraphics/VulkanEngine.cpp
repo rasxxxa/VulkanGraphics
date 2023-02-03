@@ -1271,9 +1271,22 @@ void VulkanEngine::Run()
 					obj.append(std::to_string(i));
 					if (ImGui::CollapsingHeader(obj.c_str()))
 					{
-						ImGui::SliderFloat((obj + " X ").c_str(), &m_renderables[i].GetX(), 0.0f, 2.0f);
-						ImGui::SliderFloat((obj + " Y ").c_str(), &m_renderables[i].GetY(), 0.0f, 2.0f);
-						ImGui::SliderFloat((obj + " alfa").c_str(), &m_renderables[i].GetAlphaRef(), 0.0f, 1.0f);
+						float sizeX = m_renderables[i].GetScaleX();
+						float sizeY = m_renderables[i].GetScaleY();
+						float posX = m_renderables[i].GetX();
+						float posY = m_renderables[i].GetY();
+						float alpha = m_renderables[i].GetAlpha();
+						float rotation = m_renderables[i].GetAngle();
+						ImGui::SliderFloat((obj + " position X ").c_str(), &posX, 0.0f, 2.0f);
+						ImGui::SliderFloat((obj + " position Y ").c_str(), &posY, 0.0f, 2.0f);
+						ImGui::SliderFloat((obj + " alfa ").c_str(), &alpha, 0.0f, 1.0f);
+						ImGui::SliderFloat((obj + " size X ").c_str(), &sizeX, 0.0f, 5.0f);
+						ImGui::SliderFloat((obj + " size Y ").c_str(), &sizeY, 0.0f, 5.0f);
+						ImGui::SliderFloat((obj + " rotation ").c_str(), &rotation, 0.0f, 360.0f);
+						m_renderables[i].SetPosition(posX, posY);
+						m_renderables[i].SetAlpha(alpha);
+						m_renderables[i].SetSize(sizeX, sizeY);
+						m_renderables[i].SetRotation(rotation);
 					}
 				}
 			}

@@ -8,6 +8,7 @@ class Renderable
 private:
 	Mesh* m_mesh;
 	glm::mat4 m_transformMatrix;
+	glm::mat4 m_defaultMatrix;
 	float m_alpha;
 	int m_texId;
 	VkPipeline m_pipeline;
@@ -16,6 +17,8 @@ private:
 	float m_posX;
 	float m_posY;
 	float m_angle;
+	float m_scaleX;
+	float m_scaleY;
 public:
 	Renderable();
 	inline float GetAlpha() const { return m_alpha; }
@@ -29,10 +32,15 @@ public:
 	inline void SetTexId(int id) { this->m_texId = id; }
 	inline glm::mat4 GetTransformMatrix() const { return m_transformMatrix; };
 	void SetRotation(float angle);
-	float& GetX() { return m_transformMatrix[3].x; }
-	float& GetY() { return m_transformMatrix[3].y;; }
-	float& GetWidth() { return m_width; }
-	float& GetHeight() { return m_height; }
-	float& GetAngle() { return m_angle; }
-	float& GetAlphaRef() { return m_alpha; }
+	float GetX() { return m_posX; }
+	float GetY() { return m_posY; }
+	float GetWidth() { return m_width; }
+	float GetHeight() { return m_height; }
+	float GetAngle() { return m_angle; }
+	float GetAlphaRef() { return m_alpha; }
+	void SetSize(float x, float y);
+	float GetSizeX() { return m_width; }
+	float GetSizeY() { return m_height; }
+	float GetScaleX() const { return m_scaleX; }
+	float GetScaleY() const { return m_scaleY; }
 };
