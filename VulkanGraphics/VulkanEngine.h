@@ -52,6 +52,8 @@ private:
 		VkDescriptorSet m_objectDescriptor;
 	};
 
+	enum class TypeOfObject {Simple, Texture};
+
 	struct UploadContext 
 	{
 		VkFence m_uploadFence;
@@ -176,7 +178,8 @@ public:
 	VulkanEngine();
 	VulkanEngine(const VulkanEngine&) = delete;
 	VulkanEngine(const VulkanEngine&&) = delete;
-	Renderable& GetRenderable(int index) { return m_renderables[0]; };
+	Renderable CreateObject();
+	Renderable CreateObject(const std::string& texturePath);
 	void Init();
 	void Run();
 	void CleanUp();

@@ -5,6 +5,9 @@ Renderable::Renderable() : m_alpha(1.0), m_texId(-1), m_transformMatrix(glm::mat
 {
 	m_transformMatrix = glm::translate(glm::vec3{ 0, 0, 0 });
 	m_defaultMatrix = m_transformMatrix;
+	m_color.r = 1.0f;
+	m_color.g = 1.0f;
+	m_color.b = 1.0f;
 }
 
 void Renderable::SetPosition(float x, float y)

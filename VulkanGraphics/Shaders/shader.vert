@@ -4,8 +4,7 @@
 #extension GL_ARB_shading_language_420pack : enable
 
 layout(location = 0) in vec3 pos;
-layout(location = 1) in vec3 col;
-layout(location = 2) in vec2 tex;
+layout(location = 1) in vec2 tex;
 
 layout(set = 0, binding = 0) uniform UboViewProjection {
 	mat4 projview;
@@ -13,7 +12,7 @@ layout(set = 0, binding = 0) uniform UboViewProjection {
 
 struct ObjectData{
 	mat4 model;
-	vec4 additional;
+	mat4 additional;
 }; 
 
 //all object matrices
@@ -32,6 +31,6 @@ void main() {
 	mat4 modelMatrix = object.model;
 	mat4 transformMatrix = (uboViewProjection.projview * modelMatrix);
 	gl_Position = transformMatrix * vec4(pos, 1.0f);
-	alpha = object.additional[0];
+	alpha = object.additional[0][0];
 	fragTex = tex;
 }

@@ -627,80 +627,53 @@ void VulkanEngine::LoadMesh()
 		vkCreateSampler(m_logicalDevice, &val, nullptr, &m_sampler);
 		m_deleter.Push([this]() {vkDestroySampler(m_logicalDevice, m_sampler, nullptr); });
 	}
-
-	const std::string path = "../../../../assets/";
-	const std::string imgName = "Slike";
-	Random<float> rand;
-	static Mesh universalMesh;
-	float r, g, b;
-	r = rand.Get(0.0f, 1.0f);
-	g = rand.Get(0.0f, 1.0f);
-	b = rand.Get(0.0f, 1.0f);
-
-	for (int j = 0; j < 6; j++)
-		universalMesh.m_vertices[j].color = glm::vec3(r, g, b);
+	Mesh universalMesh;
 
 	for (int j = 0; j < 6; j++)
 	{
 		universalMesh.m_vertices[j].position -= 0.1f;
 	}
+
 	UploadMesh(universalMesh);
-	m_meshes["textureMash"] = universalMesh;
-	//for (int i = 10001; i < 15002; i++)
+	m_meshes["quad"] = universalMesh;
+
+	//for (int i = 0; i < NUM_TEST_OBJECTS; i++)
 	//{
+
+	//	Mesh coloredMesh;
+	//	for (int j = 0; j < 6; j++)
+	//	{
+	//		coloredMesh.m_vertices[j].position -= 0.1f;
+	//	}
+	//	float r, g, b;
+	//	r = rand.Get(0.0f, 1.0f);
+	//	g = rand.Get(0.0f, 1.0f);
+	//	b = rand.Get(0.0f, 1.0f);
+
+	//	for (int j = 0; j < 6; j++)
+	//		coloredMesh.m_vertices[j].color = glm::vec3(r, g, b);
+
+	//	UploadMesh(coloredMesh);
+	//	
 	//	std::string fullImage = imgName;
 	//	fullImage.append(std::to_string(i));
-	//	fullImage.append(".png");
-	//	std::string fullPath = path;
-	//	fullPath.append(fullImage);
+	//	fullImage.append("OBJ");
 
-	//	//LoadImage(fullPath.c_str(), fullImage.c_str());
+	//	m_meshes[fullImage] = coloredMesh;
 
 	//	Renderable map;
-	//	map.SetMesh(&universalMesh);
-	//	glm::mat4 x = glm::mat4(1.0f);
-	//	//map.SetTexId(CreateTextureDescriptor(m_loadedTextures[fullImage].imageView, m_sampler));
+	//	map.SetMesh(& m_meshes[fullImage]);
+
+	//	float x = rand.Get(-10.5f, 10.5f);
+	//	float y = rand.Get(-10.5f, 10.5f);
+
 	//	map.SetPosition(0.0f, 0.0f);
 	//	map.SetPipeline(m_simpleObjectPipeline);
 	//	m_renderables.push_back(map);
 	//}
 
-	for (int i = 0; i < NUM_TEST_OBJECTS; i++)
-	{
-
-		Mesh coloredMesh;
-		for (int j = 0; j < 6; j++)
-		{
-			coloredMesh.m_vertices[j].position -= 0.1f;
-		}
-		float r, g, b;
-		r = rand.Get(0.0f, 1.0f);
-		g = rand.Get(0.0f, 1.0f);
-		b = rand.Get(0.0f, 1.0f);
-
-		for (int j = 0; j < 6; j++)
-			coloredMesh.m_vertices[j].color = glm::vec3(r, g, b);
-
-		UploadMesh(coloredMesh);
-		
-		std::string fullImage = imgName;
-		fullImage.append(std::to_string(i));
-		fullImage.append("OBJ");
-
-		m_meshes[fullImage] = coloredMesh;
-
-		Renderable map;
-		map.SetMesh(& m_meshes[fullImage]);
-
-		float x = rand.Get(-10.5f, 10.5f);
-		float y = rand.Get(-10.5f, 10.5f);
-
-		map.SetPosition(0.0f, 0.0f);
-		map.SetPipeline(m_simpleObjectPipeline);
-		m_renderables.push_back(map);
-	}
-
-
+	CreateObject();
+	CreateObject("../../../../assets/Slike10000.png");
 }
 
 void VulkanEngine::InitDescriptors()
@@ -1013,12 +986,17 @@ void VulkanEngine::DrawObjects(VkCommandBuffer cmd)
 	vmaMapMemory(m_allocator, GetCurrentFrame().m_objectBuffer.allocation, &objectData);
 
 	GPUObjectData* objectSSBO = (GPUObjectData*)objectData;
-	
+
 	for (int i = 0; i < m_renderables.size(); i++)
 	{
 		Renderable& object = m_renderables[i];
 		objectSSBO[i].modelMatrix = object.GetTransformMatrix();
-		objectSSBO[i].additionalInfo[0] = object.GetAlpha();
+		objectSSBO[i].additionalInfo[0][0] = object.GetAlpha();
+		Color c = object.GetColor();
+	//	objectSSBO[i].additionalInfo = glm::mat4(0.0f);
+		objectSSBO[i].additionalInfo[0][1] = c.r;
+		objectSSBO[i].additionalInfo[0][2] = c.g;
+		objectSSBO[i].additionalInfo[0][3] = c.b;
 	}
 
 	vmaUnmapMemory(m_allocator, GetCurrentFrame().m_objectBuffer.allocation);
@@ -1185,8 +1163,35 @@ void VulkanEngine::LoadImgGui()
 		});
 }
 
+
 VulkanEngine::VulkanEngine()
 {
+
+}
+
+Renderable VulkanEngine::CreateObject()
+{
+	Renderable map;
+	map.SetMesh(&m_meshes["quad"]);
+	map.SetPosition(0.0f, 0.0f);
+	map.SetPipeline(m_simpleObjectPipeline);
+	Color c{};
+	c.r = 1.0f;
+	map.SetColor(c);
+	m_renderables.push_back(map);
+	return map;
+}
+
+Renderable VulkanEngine::CreateObject(const std::string& texturePath)
+{
+	Renderable map;
+	map.SetMesh(&m_meshes["quad"]);
+	map.SetPosition(0.0f, 0.0f);
+	map.SetPipeline(m_texturePipeline);
+	LoadImage(texturePath, texturePath);
+	map.SetTexId(CreateTextureDescriptor(m_loadedTextures[texturePath].imageView, m_sampler));
+	m_renderables.push_back(map);
+	return map;
 }
 
 void VulkanEngine::Init()
@@ -1280,24 +1285,34 @@ void VulkanEngine::Run()
 						float posY = m_renderables[i].GetY();
 						float alpha = m_renderables[i].GetAlpha();
 						float rotation = m_renderables[i].GetAngle();
-						ImGui::SliderFloat((obj + " position X ").c_str(), &posX, 0.0f, 2.0f);
-						ImGui::SliderFloat((obj + " position Y ").c_str(), &posY, 0.0f, 2.0f);
-						ImGui::SliderFloat((obj + " alfa ").c_str(), &alpha, 0.0f, 1.0f);
-						ImGui::SliderFloat((obj + " size X ").c_str(), &sizeX, 0.0f, 5.0f);
-						ImGui::SliderFloat((obj + " size Y ").c_str(), &sizeY, 0.0f, 5.0f);
-						ImGui::SliderFloat((obj + " rotation ").c_str(), &rotation, 0.0f, 360.0f);
+						ImGui::SliderFloat((" Pos X "), &posX, 0.0f, 2.0f);
+						ImGui::SliderFloat((" Pos Y "), &posY, 0.0f, 2.0f);
+						ImGui::SliderFloat((" alfa "), &alpha, 0.0f, 1.0f);
+						ImGui::SliderFloat((" size X "), &sizeX, 0.0f, 5.0f);
+						ImGui::SliderFloat((" size Y "), &sizeY, 0.0f, 5.0f);
+						ImGui::SliderFloat((" rotation"), &rotation, 0.0f, 360.0f);
 						m_renderables[i].SetPosition(posX, posY);
 						m_renderables[i].SetAlpha(alpha);
 						m_renderables[i].SetSize(sizeX, sizeY);
 						m_renderables[i].SetRotation(rotation);
+						float color[3] = { 0.0f };
+						Color c = m_renderables[i].GetColor();
+						color[0] = c.r;
+						color[1] = c.g;
+						color[2] = c.b;
+						ImGui::ColorPicker3("Color ", color);
+						c.r = color[0];
+						c.g = color[1];
+						c.b = color[2];
+						m_renderables[i].SetColor(c);
 					}
 				}
 			}
 		}
-		for (int i = 0; i < m_renderables.size(); i++)
-		{
-			m_renderables[i].SetRotation(sin(ImGui::GetTime()) * 360.0f);
-		}
+		//for (int i = 0; i < m_renderables.size(); i++)
+		//{
+		//	m_renderables[i].SetRotation(sin(ImGui::GetTime()) * 360.0f);
+		//}
 		Draw();
 	}
 }

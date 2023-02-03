@@ -3,6 +3,9 @@
 #include <vulkan/vulkan.h>
 #include <glm/glm/glm.hpp>
 #include <glm/glm/gtx/transform.hpp>
+
+import Helper;
+
 class Renderable
 {
 private:
@@ -19,6 +22,7 @@ private:
 	float m_angle;
 	float m_scaleX;
 	float m_scaleY;
+	Color m_color;
 public:
 	Renderable();
 	inline float GetAlpha() const { return m_alpha; }
@@ -43,4 +47,6 @@ public:
 	float GetSizeY() { return m_height; }
 	float GetScaleX() const { return m_scaleX; }
 	float GetScaleY() const { return m_scaleY; }
+	Color GetColor() const { return m_color; }
+	void SetColor(const Color& color) { m_color = color; }
 };

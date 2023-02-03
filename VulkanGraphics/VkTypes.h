@@ -33,5 +33,5 @@ struct GPUCameraData {
 
 struct GPUObjectData {
 	 glm::mat4 modelMatrix;
-	 glm::vec4 additionalInfo;
+	 glm::mat4 additionalInfo;
 };
