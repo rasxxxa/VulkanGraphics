@@ -32,6 +32,8 @@ void Renderable::SetSize(float x, float y)
 	m_transformMatrix[3].y = m_posY;
 	m_scaleX = x;
 	m_scaleY = y;
+	m_width *= x;
+	m_height *= y;
 	m_transformMatrix = glm::rotate(m_transformMatrix, glm::radians(m_angle), glm::vec3(0.0, 0.0, 1));
 	m_transformMatrix = glm::scale(m_transformMatrix, glm::vec3(x, y, 1));
 }

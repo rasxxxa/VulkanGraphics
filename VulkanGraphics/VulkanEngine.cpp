@@ -646,56 +646,59 @@ void VulkanEngine::LoadMesh()
 	}
 	UploadMesh(universalMesh);
 	m_meshes["textureMash"] = universalMesh;
-	for (int i = 10001; i < 10002; i++)
+	//for (int i = 10001; i < 15002; i++)
+	//{
+	//	std::string fullImage = imgName;
+	//	fullImage.append(std::to_string(i));
+	//	fullImage.append(".png");
+	//	std::string fullPath = path;
+	//	fullPath.append(fullImage);
+
+	//	//LoadImage(fullPath.c_str(), fullImage.c_str());
+
+	//	Renderable map;
+	//	map.SetMesh(&universalMesh);
+	//	glm::mat4 x = glm::mat4(1.0f);
+	//	//map.SetTexId(CreateTextureDescriptor(m_loadedTextures[fullImage].imageView, m_sampler));
+	//	map.SetPosition(0.0f, 0.0f);
+	//	map.SetPipeline(m_simpleObjectPipeline);
+	//	m_renderables.push_back(map);
+	//}
+
+	for (int i = 0; i < NUM_TEST_OBJECTS; i++)
 	{
+
+		Mesh coloredMesh;
+		for (int j = 0; j < 6; j++)
+		{
+			coloredMesh.m_vertices[j].position -= 0.1f;
+		}
+		float r, g, b;
+		r = rand.Get(0.0f, 1.0f);
+		g = rand.Get(0.0f, 1.0f);
+		b = rand.Get(0.0f, 1.0f);
+
+		for (int j = 0; j < 6; j++)
+			coloredMesh.m_vertices[j].color = glm::vec3(r, g, b);
+
+		UploadMesh(coloredMesh);
+		
 		std::string fullImage = imgName;
 		fullImage.append(std::to_string(i));
-		fullImage.append(".png");
-		std::string fullPath = path;
-		fullPath.append(fullImage);
+		fullImage.append("OBJ");
 
-		LoadImage(fullPath.c_str(), fullImage.c_str());
+		m_meshes[fullImage] = coloredMesh;
 
 		Renderable map;
-		map.SetMesh(&universalMesh);
-		glm::mat4 x = glm::mat4(1.0f);
-		//map.SetTexId(CreateTextureDescriptor(m_loadedTextures[fullImage].imageView, m_sampler));
+		map.SetMesh(& m_meshes[fullImage]);
+
+		float x = rand.Get(-10.5f, 10.5f);
+		float y = rand.Get(-10.5f, 10.5f);
+
 		map.SetPosition(0.0f, 0.0f);
 		map.SetPipeline(m_simpleObjectPipeline);
 		m_renderables.push_back(map);
 	}
-
-	//for (int i = 0; i < 10000; i++)
-	//{
-
-	//	Mesh coloredMesh;
-
-	//	float r, g, b;
-	//	r = rand.Get(0.0f, 1.0f);
-	//	g = rand.Get(0.0f, 1.0f);
-	//	b = rand.Get(0.0f, 1.0f);
-
-	//	for (int j = 0; j < 6; j++)
-	//		coloredMesh.m_vertices[j].color = glm::vec3(r, g, b);
-
-	//	UploadMesh(coloredMesh);
-	//	
-	//	std::string fullImage = imgName;
-	//	fullImage.append(std::to_string(i));
-	//	fullImage.append("OBJ");
-
-	//	m_meshes[fullImage] = coloredMesh;
-
-	//	RenderObject map;
-	//	map.mesh = &m_meshes[fullImage];
-
-	//	float x = rand.Get(-10.5f, 10.5f);
-	//	float y = rand.Get(-10.5f, 10.5f);
-
-	//	map.transformMatrix = glm::translate(glm::vec3{ x, y ,0 });
-	//	map.pipeline = m_simpleObjectPipeline;
-	//	m_renderables.push_back(map);
-	//}
 
 
 }
@@ -1290,7 +1293,10 @@ void VulkanEngine::Run()
 					}
 				}
 			}
-
+		}
+		for (int i = 0; i < m_renderables.size(); i++)
+		{
+			m_renderables[i].SetRotation(sin(ImGui::GetTime()) * 360.0f);
 		}
 		Draw();
 	}

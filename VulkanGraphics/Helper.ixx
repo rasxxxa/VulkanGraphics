@@ -22,4 +22,6 @@ export
 
 	constexpr ushort FRAMES = 2;
 
+	constexpr ushort NUM_TEST_OBJECTS = 2000;
+
 }
