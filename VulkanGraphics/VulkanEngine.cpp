@@ -27,6 +27,12 @@ VulkanEngine::Frame& VulkanEngine::GetCurrentFrame()
 	return m_frames[m_frameNumber % FRAMES];
 }
 
+VulkanEngine& VulkanEngine::Get()
+{
+	static VulkanEngine engine{};
+	return engine;
+}
+
 AllocatedBuffer VulkanEngine::CreateBuffer(size_t allocSize, VkBufferUsageFlagBits usage, VmaMemoryUsage memoryUsage)
 {
 	//allocate vertex buffer
@@ -637,43 +643,8 @@ void VulkanEngine::LoadMesh()
 	UploadMesh(universalMesh);
 	m_meshes["quad"] = universalMesh;
 
-	//for (int i = 0; i < NUM_TEST_OBJECTS; i++)
-	//{
-
-	//	Mesh coloredMesh;
-	//	for (int j = 0; j < 6; j++)
-	//	{
-	//		coloredMesh.m_vertices[j].position -= 0.1f;
-	//	}
-	//	float r, g, b;
-	//	r = rand.Get(0.0f, 1.0f);
-	//	g = rand.Get(0.0f, 1.0f);
-	//	b = rand.Get(0.0f, 1.0f);
-
-	//	for (int j = 0; j < 6; j++)
-	//		coloredMesh.m_vertices[j].color = glm::vec3(r, g, b);
-
-	//	UploadMesh(coloredMesh);
-	//	
-	//	std::string fullImage = imgName;
-	//	fullImage.append(std::to_string(i));
-	//	fullImage.append("OBJ");
-
-	//	m_meshes[fullImage] = coloredMesh;
-
-	//	Renderable map;
-	//	map.SetMesh(& m_meshes[fullImage]);
-
-	//	float x = rand.Get(-10.5f, 10.5f);
-	//	float y = rand.Get(-10.5f, 10.5f);
-
-	//	map.SetPosition(0.0f, 0.0f);
-	//	map.SetPipeline(m_simpleObjectPipeline);
-	//	m_renderables.push_back(map);
-	//}
-
-	CreateObject();
-	CreateObject("../../../../assets/Slike10000.png");
+	//CreateObject();
+	//CreateObject("../../../../assets/Slike10000.png");
 }
 
 void VulkanEngine::InitDescriptors()

@@ -174,8 +174,9 @@ private:
 	VkDescriptorSetLayout m_singleTextureSetLayout;
 #pragma endregion
 
-public:
 	VulkanEngine();
+public:
+	static VulkanEngine& Get();
 	VulkanEngine(const VulkanEngine&) = delete;
 	VulkanEngine(const VulkanEngine&&) = delete;
 	Renderable CreateObject();

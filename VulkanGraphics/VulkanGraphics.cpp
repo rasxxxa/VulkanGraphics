@@ -7,9 +7,8 @@ using namespace std;
 
 int main(int argc, char** argv)
 {
-	VulkanEngine engine;
-	engine.Init();
-	engine.Run();
-	engine.CleanUp();
+	VulkanEngine::Get().Init();
+	VulkanEngine::Get().Run();
+	VulkanEngine::Get().CleanUp();
 	return 0;
 }
