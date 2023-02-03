@@ -17,6 +17,8 @@
 #include "Renderable.h"
 import Helper;
 
+using DrawObject = Renderable*;
+
 class VulkanEngine
 {
 private:
@@ -179,8 +181,8 @@ public:
 	static VulkanEngine& Get();
 	VulkanEngine(const VulkanEngine&) = delete;
 	VulkanEngine(const VulkanEngine&&) = delete;
-	Renderable CreateObject();
-	Renderable CreateObject(const std::string& texturePath);
+	Renderable* CreateObject();
+	Renderable* CreateObject(const std::string& texturePath);
 	void Init();
 	void Run();
 	void CleanUp();

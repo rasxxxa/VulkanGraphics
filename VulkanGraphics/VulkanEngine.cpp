@@ -938,8 +938,7 @@ void VulkanEngine::DrawObjects(VkCommandBuffer cmd)
 	glm::vec3 camPos = { -1.0f,-1.0,-1.f };
 	//glm::vec3 camPos = { 0.0f,0.0,-1.f };
 	glm::mat4 view = glm::translate(glm::mat4(1.f), camPos);
-	glm::mat4 projection = glm::perspective(glm::radians(90.f), 1.0f, 0.1f, 200.0f);
-	projection[1][1] *= 1;
+	glm::mat4 projection = glm::perspective(glm::radians(90.f), 1.0f, 0.0f, 200.0f);
 
 	//fill a GPU camera data struct
 	GPUCameraData camData;
@@ -1140,20 +1139,17 @@ VulkanEngine::VulkanEngine()
 
 }
 
-Renderable VulkanEngine::CreateObject()
+Renderable* VulkanEngine::CreateObject()
 {
 	Renderable map;
 	map.SetMesh(&m_meshes["quad"]);
 	map.SetPosition(0.0f, 0.0f);
 	map.SetPipeline(m_simpleObjectPipeline);
-	Color c{};
-	c.r = 1.0f;
-	map.SetColor(c);
 	m_renderables.push_back(map);
-	return map;
+	return &m_renderables[m_renderables.size() - 1];
 }
 
-Renderable VulkanEngine::CreateObject(const std::string& texturePath)
+Renderable* VulkanEngine::CreateObject(const std::string& texturePath)
 {
 	Renderable map;
 	map.SetMesh(&m_meshes["quad"]);
@@ -1162,7 +1158,7 @@ Renderable VulkanEngine::CreateObject(const std::string& texturePath)
 	LoadImage(texturePath, texturePath);
 	map.SetTexId(CreateTextureDescriptor(m_loadedTextures[texturePath].imageView, m_sampler));
 	m_renderables.push_back(map);
-	return map;
+	return &m_renderables[m_renderables.size() - 1];
 }
 
 void VulkanEngine::Init()

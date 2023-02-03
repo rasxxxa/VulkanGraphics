@@ -33,6 +33,12 @@ export
 		{
 
 		}
+		Color(float rr, float gg, float bb) : r(rr), g(gg), b(bb)
+		{
+
+		}
 	};
 
+	Color Brown(38.0f / 255.0f, 14.0f / 255.0f, 0.0f);
+	Color Appricot(111.0 / 255.0f, 111.0f / 255.0f, 0.0f);
 }
