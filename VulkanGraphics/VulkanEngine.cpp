@@ -781,6 +781,9 @@ void VulkanEngine::InitDescriptors()
 void VulkanEngine::LoadImage(const std::string& path, const std::string& name)
 {
 	Texture startup;
+	if (m_loadedTextures.contains(name))
+		return;
+
 	if (!VkInit::LoadImageFromFile(*this, path.c_str(), startup.image))
 	{
 		std::cout << "ERROR LOADING IMAGE" << std::endl;
@@ -1156,7 +1159,14 @@ Renderable* VulkanEngine::CreateObject(const std::string& texturePath)
 	map.SetPosition(0.0f, 0.0f);
 	map.SetPipeline(m_texturePipeline);
 	LoadImage(texturePath, texturePath);
-	map.SetTexId(CreateTextureDescriptor(m_loadedTextures[texturePath].imageView, m_sampler));
+	if (m_texturesAndIDS.contains(texturePath))
+		map.SetTexId(m_texturesAndIDS[texturePath]);
+	else
+	{
+		int id = CreateTextureDescriptor(m_loadedTextures[texturePath].imageView, m_sampler);
+		map.SetTexId(id);
+		m_texturesAndIDS[texturePath] = id;
+	}
 	m_renderables.push_back(map);
 	return &m_renderables[m_renderables.size() - 1];
 }

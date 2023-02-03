@@ -175,6 +175,7 @@ private:
 	void LoadImgGui();
 	//texture hashmap
 	std::unordered_map<std::string, Texture> m_loadedTextures;
+	std::unordered_map<std::string, int> m_texturesAndIDS;
 
 public:
 	void ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
