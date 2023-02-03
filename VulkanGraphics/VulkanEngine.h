@@ -23,6 +23,31 @@ class VulkanEngine
 {
 private:
 	
+	struct CameraPos
+	{
+		float x;
+		float y;
+		float z;
+		CameraPos() : x(-1.0f), y(-1.0f), z(-1.0f)
+		{
+
+		}
+	};
+
+	struct Perspective
+	{
+		float fovy;
+		float ratio;
+		float znear;
+		float zfar;
+		Perspective() : fovy(90.0f), ratio(1.0f), znear(-0.0f), zfar(200.0f)
+		{
+
+		}
+	};
+
+	CameraPos m_mainCamera;
+	Perspective m_mainPerspective;
 	std::vector<VkDescriptorSet> m_samplersDescriptorSets;
 
 	struct Texture 

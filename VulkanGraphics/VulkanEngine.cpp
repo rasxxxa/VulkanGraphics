@@ -935,10 +935,10 @@ void VulkanEngine::ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& fu
 void VulkanEngine::DrawObjects(VkCommandBuffer cmd)
 {
 
-	glm::vec3 camPos = { -1.0f,-1.0,-1.f };
+	glm::vec3 camPos = { m_mainCamera.x,m_mainCamera.y,m_mainCamera.z };
 	//glm::vec3 camPos = { 0.0f,0.0,-1.f };
 	glm::mat4 view = glm::translate(glm::mat4(1.f), camPos);
-	glm::mat4 projection = glm::perspective(glm::radians(90.f), 1.0f, 0.0f, 200.0f);
+	glm::mat4 projection = glm::perspective(glm::radians(m_mainPerspective.fovy), m_mainPerspective.ratio, m_mainPerspective.znear, m_mainPerspective.zfar);
 
 	//fill a GPU camera data struct
 	GPUCameraData camData;
@@ -1211,25 +1211,6 @@ void VulkanEngine::Run()
 		{
 			ImGui_ImplSDL2_ProcessEvent(&e);
 			if (e.type == SDL_QUIT) bQuit = true;
-			if (e.type == SDL_KEYDOWN)
-			{
-				if (e.key.keysym.sym == 'a')
-				{
-					m_renderables[0].SetRotation(15.0f);
-				}
-				if (e.key.keysym.sym == 's')
-				{
-					m_renderables[0].SetPosition(-.1f, -0.1f);
-				}
-				if (e.key.keysym.sym == 'd')
-				{
-					m_renderables[0].SetPosition(0.5f, 0.5f);
-				}
-				if (e.key.keysym.sym == 'w')
-				{
-					m_renderables[0].SetPosition(1.0f, 1.0f);
-				}
-			}
 
 		}
 
@@ -1240,6 +1221,22 @@ void VulkanEngine::Run()
 			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 			ImGui::Text("Rendering: %d objects", m_renderables.size());
 			{
+				ImGui::Text("Camera");
+				if (ImGui::CollapsingHeader("Main camera"))
+				{
+					ImGui::SliderFloat((" Pos X "), &m_mainCamera.x, -4.0f, 4.0f);
+					ImGui::SliderFloat((" Pos Y "), &m_mainCamera.y, -4.0f, 4.0f);
+					ImGui::SliderFloat((" Pos Z "), &m_mainCamera.z, -4.0f, 4.0f);
+				}
+
+				if (ImGui::CollapsingHeader("Perspective"))
+				{
+					ImGui::SliderFloat((" FovY "), &m_mainPerspective.fovy, 0.0f, 360.0f);
+					ImGui::SliderFloat((" Ration "), &m_mainPerspective.ratio, -4.0f, 4.0f);
+					ImGui::SliderFloat((" ZNear "), &m_mainPerspective.znear, -4.0f, 4.0f);
+					ImGui::SliderFloat((" ZFar "), &m_mainPerspective.zfar, 100.0f, 200.0f);
+				}
+
 				for (int i = 0; i < m_renderables.size(); i++)
 				{
 					std::string obj = "Renderable ";
@@ -1252,9 +1249,9 @@ void VulkanEngine::Run()
 						float posY = m_renderables[i].GetY();
 						float alpha = m_renderables[i].GetAlpha();
 						float rotation = m_renderables[i].GetAngle();
-						ImGui::SliderFloat((" Pos X "), &posX, 0.0f, 2.0f);
-						ImGui::SliderFloat((" Pos Y "), &posY, 0.0f, 2.0f);
-						ImGui::SliderFloat((" alfa "), &alpha, 0.0f, 1.0f);
+						ImGui::SliderFloat((" Pos X "), &posX, -2.0f, 2.0f);
+						ImGui::SliderFloat((" Pos Y "), &posY, -2.0f, 2.0f);
+						ImGui::SliderFloat((" alfa "), &alpha, -2.0f, 1.0f);
 						ImGui::SliderFloat((" size X "), &sizeX, 0.0f, 5.0f);
 						ImGui::SliderFloat((" size Y "), &sizeY, 0.0f, 5.0f);
 						ImGui::SliderFloat((" rotation"), &rotation, 0.0f, 360.0f);

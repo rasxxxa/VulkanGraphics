@@ -1,12 +1,11 @@
 #include <iostream>
 #include "../VulkanGraphics/VulkanEngine.h"
-#include "ChessBoard.h"
+#include "Table.h"
 
 int main(int argc, char** argv)
 {
-	ChessBoard board;
 	VulkanEngine::Get().Init();
-	board.DrawBoard();
+	Table::GetInstance()->CreateTable();
 	VulkanEngine::Get().Run();
 	VulkanEngine::Get().CleanUp();
 	return 0;
